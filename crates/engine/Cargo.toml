@@ -7,6 +7,9 @@ license.workspace = true
 
 [dependencies]
 keyforge-core = { path = "../core" }
+serde.workspace = true
+serde_json.workspace = true
+sha2 = "0.10"
 
 [target.'cfg(windows)'.dependencies]
 windows-sys = { workspace = true, features = [
@@ -18,3 +21,6 @@ windows-sys = { workspace = true, features = [
   "Win32_UI_Input_KeyboardAndMouse",
   "Win32_UI_WindowsAndMessaging",
 ] }
+
+[dev-dependencies]
+serde_json.workspace = true

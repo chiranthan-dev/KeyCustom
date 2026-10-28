@@ -134,8 +134,12 @@ impl Engine {
     }
 
     pub fn send(&mut self, command: Command) -> io::Result<()> {
+        self.send_raw(&command.line())
+    }
+
+    pub fn send_raw(&mut self, line: &str) -> io::Result<()> {
         let stdin = self.stdin.as_mut().ok_or_else(|| io::Error::new(io::ErrorKind::BrokenPipe, "engine stdin closed"))?;
-        stdin.write_all(command.line().as_bytes())?;
+        stdin.write_all(line.as_bytes())?;
         stdin.flush()
     }
 

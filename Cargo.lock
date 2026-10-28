@@ -1665,6 +1665,9 @@ name = "keyforge-engine"
 version = "0.1.0"
 dependencies = [
  "keyforge-core",
+ "serde",
+ "serde_json",
+ "sha2",
  "windows-sys 0.59.0",
 ]
 

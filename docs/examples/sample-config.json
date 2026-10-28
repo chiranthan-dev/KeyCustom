@@ -1,0 +1,41 @@
+{
+  "version": 1,
+  "activeProfile": "productivity",
+  "settings": { "tapHoldMs": 200, "doubleTapMs": 250, "closeToTray": true, "enableOnLaunch": false },
+  "profiles": [
+    {
+      "id": "productivity",
+      "name": "Productivity",
+      "switchKey": { "key": "D1", "ctrl": true, "alt": true },
+      "mappings": [
+        { "id": "play", "trigger": { "key": "F13" }, "action": { "type": "media", "action": "playPause" } },
+        { "id": "menu", "trigger": { "key": "RCtrl" }, "action": { "type": "remap", "to": "AppsKey" } },
+        { "id": "copilot", "name": "Copilot key", "trigger": { "key": "F23", "shift": true, "win": true }, "action": { "type": "remap", "to": "RCtrl" } },
+        { "id": "save", "trigger": { "key": "Insert" }, "action": { "type": "shortcut", "keys": { "key": "S", "ctrl": true, "shift": true } },
+          "hold": { "type": "system", "action": "taskManager" }, "doubleTap": { "type": "url", "url": "https://example.com" } },
+        { "id": "sig", "trigger": { "key": "Pause" }, "action": { "type": "text", "text": "Best regards,\nMe" } },
+        { "id": "standup", "trigger": { "key": "ScrollLock" }, "action": { "type": "macro", "macro": "standup" } }
+      ],
+      "macros": [
+        { "id": "standup", "name": "Stand-up note", "steps": [
+          { "type": "keys", "keys": { "key": "N", "ctrl": true } },
+          { "type": "delay", "ms": 300 },
+          { "type": "text", "text": "Yesterday: " }
+        ] }
+      ],
+      "appRules": [ { "id": "game", "process": "game.exe", "mode": "disable" } ]
+    },
+    {
+      "id": "coding",
+      "name": "Coding",
+      "switchKey": { "key": "D2", "ctrl": true, "alt": true },
+      "autoApps": ["code.exe"],
+      "mappings": [
+        { "id": "term", "trigger": { "key": "F13" }, "action": { "type": "shortcut", "keys": { "key": "Backquote", "ctrl": true } } },
+        { "id": "fmt", "trigger": { "key": "F14" }, "app": "code.exe", "action": { "type": "shortcut", "keys": { "key": "F", "shift": true, "alt": true } } }
+      ]
+    },
+    { "id": "study", "name": "Study" },
+    { "id": "gaming", "name": "Gaming" }
+  ]
+}

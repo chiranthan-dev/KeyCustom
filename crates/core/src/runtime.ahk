@@ -1,18 +1,19 @@
 ; ---------------------------------------------------------------------------
-; KeyForge engine runtime (AutoHotkey v2). Generated scripts start with this
-; file and append the user's hotkeys after it. Do not edit generated scripts:
-; KeyForge rewrites them every time a configuration is applied.
+; KeyForge engine runtime (AutoHotkey v2). KeyForge appends the generated
+; configuration, hotkeys and actions after this file. Do not edit generated
+; scripts: KeyForge rewrites them every time a configuration is applied.
 ;
 ; Protocol: the supervisor writes one command per line to stdin
-; (ping | detect | cancel-detect | exit) and reads one JSON event per line
-; from stdout. If stdin breaks (the supervisor is gone) the engine exits, so
-; the keyboard hook never outlives KeyForge.
+;   ping | detect | cancel-detect | exit | profile <id> | test <mapping id>
+; and reads one JSON event per line from stdout. If stdin breaks (the
+; supervisor is gone) the engine exits, so the hook never outlives KeyForge.
 ; ---------------------------------------------------------------------------
 #Requires AutoHotkey v2.0
 #SingleInstance Off
 #NoTrayIcon
 #UseHook true
 #Warn All, Off
+#MaxThreadsPerHotkey 1
 Persistent true
 KeyHistory 0          ; privacy: keep no key history in memory
 ListLines false
@@ -27,11 +28,22 @@ global KF_InBuf := ""
 global KF_Detector := 0
 global KF_SoloMod := 0
 global KF_WasSuspended := false
+global KF_Profile := ""
+global KF_Names := Map()      ; profile id -> display name
+global KF_AutoApps := Map()   ; process name -> profile id
+global KF_Disabled := Map()   ; profile id -> "|app.exe|other.exe|"
+global KF_Tests := Map()      ; mapping id -> action function
+global KF_Held := Map()       ; trigger key -> remap target currently held
+global KF_Pending := Map()    ; mapping id -> pending single-tap timer
 
 OnError(KF_OnError)
 OnExit(KF_OnExit)
-SetTimer(KF_PollStdin, 50)
-KF_Emit('{"event":"ready","ahk":' KF_Json(A_AhkVersion) ',"admin":' KF_Bool(A_IsAdmin) ',"pid":' ProcessExist() '}')
+
+KF_Start() {
+    SetTimer(KF_PollStdin, 50)
+    KF_Emit('{"event":"ready","ahk":' KF_Json(A_AhkVersion) ',"admin":' KF_Bool(A_IsAdmin)
+        . ',"pid":' ProcessExist() ',"profile":' KF_Json(KF_Profile) '}')
+}
 
 KF_Emit(line) {
     try FileAppend(line "`n", "*", "UTF-8-RAW")
@@ -48,6 +60,10 @@ KF_Json(s) {
 
 KF_Bool(v) {
     return v ? "true" : "false"
+}
+
+KF_ErrText(e) {
+    return (e is Error) ? e.Message : String(e)
 }
 
 KF_PollStdin() {
@@ -82,8 +98,138 @@ KF_Command(cmd) {
         case "exit":
             KF_Shutdown("requested", 0)
         default:
-            KF_Emit('{"event":"error","message":' KF_Json("unknown command: " cmd) '}')
+            if (SubStr(cmd, 1, 8) = "profile ")
+                KF_SetProfile(SubStr(cmd, 9), false)
+            else if (SubStr(cmd, 1, 5) = "test ")
+                KF_Test(SubStr(cmd, 6))
+            else
+                KF_Emit('{"event":"error","message":' KF_Json("unknown command: " cmd) '}')
     }
+}
+
+; --- Profiles and context ---------------------------------------------------
+
+KF_SetProfile(id, announce := true) {
+    global KF_Profile
+    if !KF_Names.Has(id)
+        return
+    KF_Profile := id
+    KF_Emit('{"event":"profile","id":' KF_Json(id) '}')
+    if announce {
+        ToolTip("KeyForge: " KF_Names[id])
+        SetTimer(() => ToolTip(), -1200)
+    }
+}
+
+KF_FgExe() {
+    try return StrLower(WinGetProcessName("A"))
+    return ""
+}
+
+; True when a mapping of profile `p` applies right now. `app` limits it to
+; one program; `excluded` lists programs ("|a.exe|b.exe|") whose own mapping
+; for the same trigger takes precedence.
+KF_On(p, app, excluded) {
+    exe := KF_FgExe()
+    effective := (exe != "" && KF_AutoApps.Has(exe)) ? KF_AutoApps[exe] : KF_Profile
+    if (effective != p)
+        return false
+    if (app != "")
+        return exe = app
+    if (exe != "" && excluded != "" && InStr(excluded, "|" exe "|"))
+        return false
+    return !(exe != "" && KF_Disabled.Has(p) && InStr(KF_Disabled[p], "|" exe "|"))
+}
+
+; --- Running mappings -------------------------------------------------------
+
+KF_Fired(id) {
+    KF_Emit('{"event":"fired","id":' KF_Json(id) '}')
+}
+
+KF_Do(fn) {
+    try fn()
+    catch as e
+        KF_Emit('{"event":"error","message":' KF_Json("Action failed: " KF_ErrText(e)) '}')
+}
+
+; Plain remap: the target goes down with the trigger and up with it, with
+; auto-repeat. The release is handled by a key-up hotkey that is always
+; active, so a context change while the key is held cannot leave it stuck.
+KF_RemapDown(id, key, target) {
+    if !KF_Held.Has(key)
+        KF_Fired(id)
+    KF_Held[key] := target
+    SetKeyDelay -1
+    Send "{Blind}{" target " DownR}"
+}
+
+KF_KeyUp(key) {
+    if KF_Held.Has(key) {
+        target := KF_Held.Delete(key)
+        SetKeyDelay -1
+        Send "{Blind}{" target " up}"
+    }
+}
+
+; Press, tap/hold and double-tap. Fires once per physical press: auto-repeat
+; is swallowed by waiting for the key to be released.
+KF_Run(id, key, holdMs, dblMs, tap, hold, dbl) {
+    KF_Fired(id)
+    if hold {
+        if !KeyWait(key, "T" (holdMs / 1000)) {
+            KF_Do(hold)
+            KeyWait(key)
+            return
+        }
+    }
+    if dbl {
+        if KF_Pending.Has(id) {
+            SetTimer(KF_Pending.Delete(id), 0)
+            KF_Do(dbl)
+        } else {
+            fn := KF_FirePending.Bind(id, tap)
+            KF_Pending[id] := fn
+            SetTimer(fn, -dblMs)
+        }
+    } else
+        KF_Do(tap)
+    if !hold
+        KeyWait(key)
+}
+
+KF_FirePending(id, tap) {
+    if KF_Pending.Has(id) {
+        KF_Pending.Delete(id)
+        KF_Do(tap)
+    }
+}
+
+KF_Test(id) {
+    if !KF_Tests.Has(id) {
+        KF_Emit('{"event":"error","message":' KF_Json("Mapping " id " is not active in the engine.") '}')
+        return
+    }
+    KF_Fired(id)
+    KF_Do(KF_Tests[id])
+}
+
+KF_Launch(path, args := "") {
+    Run(args = "" ? '"' path '"' : '"' path '" ' args)
+}
+
+KF_Open(target) {
+    Run(target)
+}
+
+KF_Script(path, kind, confirm, label) {
+    ; 0x40024 = Yes/No buttons, question icon, always on top.
+    if confirm && MsgBox("Run this script?`n`n" label, "KeyForge", 0x40024) != "Yes"
+        return
+    if (kind = "ps1")
+        Run('powershell.exe -NoProfile -ExecutionPolicy Bypass -File "' path '"')
+    else
+        Run('"' path '"')
 }
 
 ; --- Key detection ----------------------------------------------------------
@@ -128,7 +274,6 @@ KF_DetectDown(ih, vk, sc) {
 }
 
 KF_DetectUp(ih, vk, sc) {
-    global KF_SoloMod
     if IsObject(KF_SoloMod) && KF_SoloMod[1] = vk
         KF_Report(vk, sc, false)
 }
@@ -180,12 +325,13 @@ KF_Shutdown(reason, code) {
 }
 
 KF_OnExit(reason, code) {
+    for key, target in KF_Held
+        try Send("{Blind}{" target " up}")
     KF_ReleaseModifiers()
 }
 
 KF_OnError(err, mode) {
-    msg := (err is Error) ? err.Message " (line " err.Line ")" : String(err)
-    KF_Emit('{"event":"error","message":' KF_Json(msg) '}')
+    KF_Emit('{"event":"error","message":' KF_Json(KF_ErrText(err) ((err is Error) ? " (line " err.Line ")" : "")) '}')
     return 1
 }
 
@@ -196,4 +342,4 @@ KF_OnError(err, mode) {
 ^!+Backspace::KF_Shutdown("emergency", 3)
 #SuspendExempt false
 
-; --- User mappings ------------------------------------------------------------
+; --- Generated configuration ------------------------------------------------

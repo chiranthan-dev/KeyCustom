@@ -11,9 +11,10 @@ use windows_sys::Win32::System::JobObjects::{
     AssignProcessToJobObject, CreateJobObjectW, JobObjectExtendedLimitInformation, SetInformationJobObject,
     JOBOBJECT_EXTENDED_LIMIT_INFORMATION, JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE,
 };
+use keyforge_core::config::Modifiers;
 use windows_sys::Win32::UI::Input::KeyboardAndMouse::{
     GetAsyncKeyState, RegisterHotKey, SendInput, INPUT, INPUT_0, INPUT_KEYBOARD, KEYBDINPUT, KEYEVENTF_EXTENDEDKEY,
-    KEYEVENTF_KEYUP, MOD_ALT, MOD_CONTROL, MOD_NOREPEAT, MOD_SHIFT, VK_BACK, VK_LCONTROL, VK_LMENU, VK_LSHIFT, VK_LWIN,
+    KEYEVENTF_KEYUP, KEYEVENTF_SCANCODE, MOD_ALT, MOD_CONTROL, MOD_NOREPEAT, MOD_SHIFT, VK_BACK, VK_LCONTROL, VK_LMENU, VK_LSHIFT, VK_LWIN,
     VK_RCONTROL, VK_RMENU, VK_RSHIFT, VK_RWIN,
 };
 use windows_sys::Win32::UI::WindowsAndMessaging::{GetMessageW, MSG, WM_HOTKEY};
@@ -61,10 +62,35 @@ pub fn assign_to_kill_job(child: &Child) -> io::Result<()> {
 }
 
 fn key_input(vk: u16, flags: u32) -> INPUT {
+    key_input_sc(vk, 0, flags)
+}
+
+fn key_input_sc(vk: u16, sc: u16, flags: u32) -> INPUT {
     INPUT {
         r#type: INPUT_KEYBOARD,
-        Anonymous: INPUT_0 { ki: KEYBDINPUT { wVk: vk, wScan: 0, dwFlags: flags, time: 0, dwExtraInfo: 0 } },
+        Anonymous: INPUT_0 { ki: KEYBDINPUT { wVk: vk, wScan: sc, dwFlags: flags, time: 0, dwExtraInfo: 0 } },
     }
+}
+
+/// Inject one press and release of a key with modifiers, as the mapping
+/// test does. Both the virtual-key and scan code are set, so hotkeys that
+/// match either see the key.
+pub fn send_chord(vk: u16, sc: u16, mods: &Modifiers) {
+    let held: Vec<u16> = [(mods.ctrl, VK_LCONTROL), (mods.shift, VK_LSHIFT), (mods.alt, VK_LMENU), (mods.win, VK_LWIN)]
+        .into_iter()
+        .filter_map(|(on, vk)| on.then_some(vk))
+        .collect();
+    let mut flags = if sc & 0x100 != 0 { KEYEVENTF_EXTENDEDKEY } else { 0 };
+    if vk == 0 {
+        flags |= KEYEVENTF_SCANCODE;
+    }
+    let mut inputs: Vec<INPUT> = held.iter().map(|&m| key_input(m, if m == VK_LWIN { KEYEVENTF_EXTENDEDKEY } else { 0 })).collect();
+    inputs.push(key_input_sc(vk, sc & 0xFF, flags));
+    inputs.push(key_input_sc(vk, sc & 0xFF, flags | KEYEVENTF_KEYUP));
+    for &m in held.iter().rev() {
+        inputs.push(key_input(m, KEYEVENTF_KEYUP | if m == VK_LWIN { KEYEVENTF_EXTENDEDKEY } else { 0 }));
+    }
+    unsafe { SendInput(inputs.len() as u32, inputs.as_ptr(), std::mem::size_of::<INPUT>() as i32) };
 }
 
 /// Send key-up for every modifier Windows still considers down. Used after

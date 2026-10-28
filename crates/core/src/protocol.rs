@@ -6,11 +6,21 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "event", rename_all = "kebab-case")]
 pub enum Event {
-    Ready { ahk: String, admin: bool, pid: u32 },
+    Ready {
+        ahk: String,
+        admin: bool,
+        pid: u32,
+        #[serde(default)]
+        profile: String,
+    },
     Pong,
     DetectStarted,
     DetectEnded { reason: String },
     Key(DetectedKey),
+    /// A mapping ran. `id` is `profile/mapping`.
+    Fired { id: String },
+    /// The active profile changed (profile shortcut or `profile` command).
+    Profile { id: String },
     Error { message: String },
     Exit { reason: String },
 }
@@ -43,23 +53,33 @@ pub fn parse_event(line: &str) -> Result<Event, String> {
     Ok(event)
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Command {
     Ping,
     Detect,
     CancelDetect,
     Exit,
+    /// Switch profile. Ids are validated (letters, digits, - and _).
+    Profile(String),
+    /// Run a mapping's action directly; `profile/mapping`.
+    Test(String),
 }
 
 impl Command {
-    pub fn line(self) -> &'static str {
+    pub fn line(&self) -> String {
         match self {
-            Command::Ping => "ping\n",
-            Command::Detect => "detect\n",
-            Command::CancelDetect => "cancel-detect\n",
-            Command::Exit => "exit\n",
+            Command::Ping => "ping\n".into(),
+            Command::Detect => "detect\n".into(),
+            Command::CancelDetect => "cancel-detect\n".into(),
+            Command::Exit => "exit\n".into(),
+            Command::Profile(id) => format!("profile {}\n", single_line(id)),
+            Command::Test(id) => format!("test {}\n", single_line(id)),
         }
     }
+}
+
+fn single_line(s: &str) -> String {
+    s.chars().filter(|c| !c.is_control()).collect()
 }
 
 /// Exit codes used by the runtime script.
@@ -76,10 +96,12 @@ mod tests {
     #[test]
     fn parses_events() {
         assert_eq!(
-            parse_event(r#"{"event":"ready","ahk":"2.0.18","admin":false,"pid":42}"#).unwrap(),
-            Event::Ready { ahk: "2.0.18".into(), admin: false, pid: 42 }
+            parse_event(r#"{"event":"ready","ahk":"2.0.18","admin":false,"pid":42,"profile":"coding"}"#).unwrap(),
+            Event::Ready { ahk: "2.0.18".into(), admin: false, pid: 42, profile: "coding".into() }
         );
         assert_eq!(parse_event(r#"{"event":"pong"}"#).unwrap(), Event::Pong);
+        assert_eq!(parse_event(r#"{"event":"fired","id":"p/m"}"#).unwrap(), Event::Fired { id: "p/m".into() });
+        assert_eq!(parse_event(r#"{"event":"profile","id":"gaming"}"#).unwrap(), Event::Profile { id: "gaming".into() });
         assert_eq!(parse_event(r#"{"event":"exit","reason":"emergency"}"#).unwrap(), Event::Exit { reason: "emergency".into() });
         let Event::Key(key) = parse_event(r#"{"event":"key","name":"F13","vk":124,"sc":100,"ctrl":true,"shift":false,"alt":false,"win":false}"#).unwrap() else {
             panic!()
@@ -97,5 +119,11 @@ mod tests {
     fn rejects_garbage() {
         assert!(parse_event("Error at line 3").is_err());
         assert!(parse_event(r#"{"event":"surprise"}"#).is_err());
+    }
+
+    #[test]
+    fn commands_are_single_lines() {
+        assert_eq!(Command::Profile("a\nexit".into()).line(), "profile aexit\n");
+        assert_eq!(Command::Test("p/m".into()).line(), "test p/m\n");
     }
 }
