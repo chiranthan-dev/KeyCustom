@@ -178,8 +178,10 @@ pub static KEYS: &[KeyDef] = &[
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct KeyRef {
     pub id: String,
-    /// Token used in generated AutoHotkey code.
-    pub ahk: String,
+    /// Key name for an AutoHotkey hotkey (the trigger side).
+    pub hotkey: String,
+    /// Key name for AutoHotkey to send (the output side).
+    pub send: String,
     pub vk: u16,
     pub sc: u16,
     pub modifier: bool,
@@ -196,7 +198,8 @@ pub fn resolve(id: &str) -> Option<KeyRef> {
     if let Some(def) = find(id) {
         return Some(KeyRef {
             id: def.id.to_string(),
-            ahk: def.ahk.to_string(),
+            hotkey: def.ahk.to_string(),
+            send: def.ahk.to_string(),
             vk: def.vk,
             sc: def.sc,
             modifier: def.group == Modifier,
@@ -209,7 +212,11 @@ pub fn resolve(id: &str) -> Option<KeyRef> {
     }
     Some(KeyRef {
         id: raw_id(vk, sc),
-        ahk: raw_id(vk, sc),
+        // AutoHotkey hotkeys accept `SCnnn` or `vkNN` but not both together.
+        // Triggers prefer the scan code (the physical key), output prefers the
+        // virtual key (what applications act on).
+        hotkey: if sc != 0 { format!("SC{sc:03X}") } else { format!("vk{vk:02X}") },
+        send: if vk != 0 { format!("vk{vk:02X}") } else { format!("SC{sc:03X}") },
         vk,
         sc,
         modifier: is_modifier_vk(vk),
@@ -287,15 +294,17 @@ mod tests {
 
     #[test]
     fn resolves_named_and_raw() {
-        assert_eq!(resolve("printscreen").unwrap().ahk, "PrintScreen");
+        assert_eq!(resolve("printscreen").unwrap().hotkey, "PrintScreen");
         assert!(resolve("RCtrl").unwrap().modifier);
         // Raw id matching a table entry normalises to the named key.
         assert_eq!(resolve("vk7Csc064").unwrap().id, "F13");
         assert!(resolve("VKFFsc0F1").is_none(), "vk FF is reserved");
         let sc_only = resolve("sc0f1").unwrap();
-        assert_eq!((sc_only.vk, sc_only.ahk.as_str()), (0, "SC0F1"));
+        assert_eq!((sc_only.vk, sc_only.hotkey.as_str(), sc_only.send.as_str()), (0, "SC0F1", "SC0F1"));
         let raw = resolve("vkE9sc0F1").unwrap();
-        assert_eq!((raw.vk, raw.sc, raw.ahk.as_str()), (0xE9, 0xF1, "vkE9sc0F1"));
+        assert_eq!((raw.id.as_str(), raw.hotkey.as_str(), raw.send.as_str()), ("vkE9sc0F1", "SC0F1", "vkE9"));
+        let vk_only = resolve("vkE9sc000").unwrap();
+        assert_eq!((vk_only.hotkey.as_str(), vk_only.send.as_str()), ("vkE9", "vkE9"));
     }
 
     #[test]

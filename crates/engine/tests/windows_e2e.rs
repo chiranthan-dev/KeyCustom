@@ -165,6 +165,7 @@ fn every_table_key_loads_in_autohotkey() {
     }
     maps.push(remap("raw", "vkE9sc0F1", "Backspace"));
     maps.push(remap("sc", "SC0F2", "Media_Play_Pause"));
+    maps.push(remap("vk", "vkE8sc000", "vkE9sc0F1"));
     let mut ctrl = remap("ctrl", "F13", "F14");
     ctrl.trigger.mods = Modifiers { ctrl: true, shift: true, alt: false, win: true };
     maps.push(ctrl);

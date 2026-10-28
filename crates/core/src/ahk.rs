@@ -11,12 +11,12 @@ pub fn generate(mappings: &[Resolved<'_>]) -> String {
     let mut out = String::with_capacity(RUNTIME.len() + mappings.len() * 48);
     out.push_str(RUNTIME);
     for r in mappings {
-        let hotkey = format!("{}{}", r.mapping.trigger.mods.ahk_prefix(), r.key.ahk);
+        let hotkey = format!("{}{}", r.mapping.trigger.mods.ahk_prefix(), r.key.hotkey);
         match &r.mapping.action {
             // AutoHotkey's remap syntax handles key-down, key-up and
             // auto-repeat, and the engine's own output never triggers hotkeys.
             Action::Remap { .. } => {
-                out.push_str(&format!("{hotkey}::{} ; {}\n", r.target.ahk, sanitize_comment(&r.mapping.id)));
+                out.push_str(&format!("{hotkey}::{} ; {}\n", r.target.send, sanitize_comment(&r.mapping.id)));
             }
         }
     }
@@ -50,7 +50,7 @@ mod tests {
         let script = generate(&resolved);
         assert!(script.starts_with(RUNTIME));
         let tail = &script[RUNTIME.len()..];
-        assert_eq!(tail, "F13::Media_Play_Pause ; play\n^SC027::vkE9sc0F1 ; semi\n");
+        assert_eq!(tail, "F13::Media_Play_Pause ; play\n^SC027::vkE9 ; semi\n");
     }
 
     #[test]
