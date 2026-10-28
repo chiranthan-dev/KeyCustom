@@ -7,3 +7,4 @@
 !/src-tauri/resources/engine/README.txt
 *.log
 .DS_Store
+*.tsbuildinfo

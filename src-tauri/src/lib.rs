@@ -15,6 +15,7 @@ use tauri::{AppHandle, Emitter, Manager, RunEvent, State, WindowEvent, Wry};
 
 type Ctl<'a> = State<'a, Arc<Controller>>;
 
+#[derive(Clone)]
 struct TrayItems {
     pause: MenuItem<Wry>,
     resume: MenuItem<Wry>,
@@ -29,30 +30,37 @@ struct TauriSink {
 impl Sink for TauriSink {
     fn emit(&self, event: &str, payload: Value) {
         if event == "status" {
+            // The controller calls this while holding its lock. Menu updates
+            // must run on the main thread, so post them without waiting;
+            // waiting here could deadlock with a main-thread caller.
             let enabled = payload["enabled"].as_bool().unwrap_or(false);
-            if let Some(items) = self.tray.lock().unwrap().as_ref() {
-                let _ = items.pause.set_enabled(enabled);
-                let _ = items.resume.set_enabled(!enabled);
-            }
-            if let Some(tray) = self.app.tray_by_id("main") {
-                let state = if enabled { "mappings on" } else { "mappings off" };
-                let _ = tray.set_tooltip(Some(format!("KeyForge: {state}")));
-            }
+            let items = self.tray.lock().unwrap().clone();
+            let app = self.app.clone();
+            let _ = self.app.run_on_main_thread(move || {
+                if let Some(items) = items {
+                    let _ = items.pause.set_enabled(enabled);
+                    let _ = items.resume.set_enabled(!enabled);
+                }
+                if let Some(tray) = app.tray_by_id("main") {
+                    let state = if enabled { "mappings on" } else { "mappings off" };
+                    let _ = tray.set_tooltip(Some(format!("KeyForge: {state}")));
+                }
+            });
         }
         let _ = self.app.emit(&format!("kf://{event}"), payload);
     }
 }
 
-/// Run blocking controller work (engine start, waiting for the engine) off
-/// the UI thread.
+/// Run controller work off the main thread: it may wait for the engine, and
+/// the controller lock must never be awaited on the main thread.
 async fn blocking<T: Send + 'static>(ctl: &Ctl<'_>, f: impl FnOnce(&Arc<Controller>) -> Result<T, String> + Send + 'static) -> Result<T, String> {
     let ctl = Arc::clone(ctl.inner());
     tauri::async_runtime::spawn_blocking(move || f(&ctl)).await.map_err(|e| e.to_string())?
 }
 
 #[tauri::command]
-fn get_snapshot(ctl: Ctl<'_>) -> Snapshot {
-    ctl.snapshot()
+async fn get_snapshot(ctl: Ctl<'_>) -> Result<Snapshot, String> {
+    blocking(&ctl, |c| Ok(c.snapshot())).await
 }
 
 #[tauri::command]
@@ -86,8 +94,8 @@ async fn start_detect(ctl: Ctl<'_>) -> Result<Status, String> {
 }
 
 #[tauri::command]
-fn cancel_detect(ctl: Ctl<'_>) {
-    ctl.cancel_detect();
+async fn cancel_detect(ctl: Ctl<'_>) -> Result<(), String> {
+    blocking(&ctl, |c| Ok(c.cancel_detect())).await
 }
 
 #[tauri::command]
@@ -116,8 +124,8 @@ async fn backup_now(ctl: Ctl<'_>) -> Result<String, String> {
 }
 
 #[tauri::command]
-fn list_backups(ctl: Ctl<'_>) -> Vec<BackupInfo> {
-    ctl.list_backups()
+async fn list_backups(ctl: Ctl<'_>) -> Result<Vec<BackupInfo>, String> {
+    blocking(&ctl, |c| Ok(c.list_backups())).await
 }
 
 #[tauri::command]
@@ -131,13 +139,13 @@ async fn reset_config(ctl: Ctl<'_>) -> Result<ApplyOutcome, String> {
 }
 
 #[tauri::command]
-fn get_logs(ctl: Ctl<'_>) -> Vec<String> {
-    ctl.logs()
+async fn get_logs(ctl: Ctl<'_>) -> Result<Vec<String>, String> {
+    blocking(&ctl, |c| Ok(c.logs())).await
 }
 
 #[tauri::command]
-fn dismiss_notice(ctl: Ctl<'_>) {
-    ctl.dismiss_notice();
+async fn dismiss_notice(ctl: Ctl<'_>) -> Result<(), String> {
+    blocking(&ctl, |c| Ok(c.dismiss_notice())).await
 }
 
 fn show_main(app: &AppHandle) {
@@ -207,7 +215,7 @@ pub fn run() {
         })
         .on_window_event(|window, event| {
             if let WindowEvent::CloseRequested { api, .. } = event {
-                let to_tray = window.app_handle().try_state::<Arc<Controller>>().is_some_and(|c| c.snapshot().config.settings.close_to_tray);
+                let to_tray = window.app_handle().try_state::<Arc<Controller>>().is_none_or(|c| c.close_to_tray());
                 if to_tray {
                     api.prevent_close();
                     let _ = window.hide();
@@ -240,7 +248,10 @@ pub fn run() {
     app.run(|handle, event| {
         if let RunEvent::Exit = event {
             if let Some(ctl) = handle.try_state::<Arc<Controller>>() {
-                ctl.shutdown();
+                // Stopping waits for the engine; do it off the main thread so
+                // pending status updates can still be delivered.
+                let ctl = Arc::clone(ctl.inner());
+                let _ = std::thread::spawn(move || ctl.shutdown()).join();
             }
         }
     });

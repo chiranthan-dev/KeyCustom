@@ -217,6 +217,11 @@ impl Controller {
         Snapshot { config: inner.config.clone(), status: self.status_of(&inner) }
     }
 
+    /// Never blocks: used from the window's close handler on the main thread.
+    pub fn close_to_tray(&self) -> bool {
+        self.inner.try_lock().map(|i| i.config.settings.close_to_tray).unwrap_or(true)
+    }
+
     pub fn logs(&self) -> Vec<String> {
         self.lock().log.iter().cloned().collect()
     }
