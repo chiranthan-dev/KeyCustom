@@ -28,6 +28,7 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run build
+      - run: npm test
 
   windows:
     name: Windows build, end-to-end tests, installer

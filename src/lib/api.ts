@@ -1,75 +1,43 @@
-// Typed wrappers around the backend commands and events. The UI never
-// listens to the keyboard itself; key detection happens in the engine.
+// Typed wrappers around backend commands and events. The UI never listens to
+// the keyboard globally; detection happens in the engine.
 import { invoke } from "@tauri-apps/api/core";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
-
-export interface Modifiers {
-  ctrl?: boolean;
-  shift?: boolean;
-  alt?: boolean;
-  win?: boolean;
-}
-
-export interface Mapping {
-  id: string;
-  enabled: boolean;
-  trigger: { key: string } & Modifiers;
-  action: { type: "remap"; to: string };
-}
-
-export interface KeyDef {
-  id: string;
-  label: string;
-  vk: number;
-  sc: number;
-  group: string;
-}
-
-export interface Status {
-  ahkPath: string | null;
-  ahkVersion: string | null;
-  engineRunning: boolean;
-  enabled: boolean;
-  detecting: boolean;
-  elevatedEngine: boolean;
-  lastError: string | null;
-  emergencyShortcut: string;
-  emergencyRegistered: boolean;
-  mappings: Mapping[];
-}
-
-export interface DetectedKey extends Required<Modifiers> {
-  id: string;
-  name: string;
-  vk: number;
-  sc: number;
-}
-
-export interface Issue {
-  mapping: string | null;
-  message: string;
-}
-
-export interface ApplyResult {
-  report: { errors: Issue[]; warnings: Issue[] };
-  status: Status;
-}
+import type { ApplyOutcome, BackupInfo, Config, DetectedKey, KeyDef, Preview, ScriptInfo, Snapshot, Status } from "./types";
 
 export const api = {
-  status: () => invoke<Status>("get_status"),
+  snapshot: () => invoke<Snapshot>("get_snapshot"),
   keys: () => invoke<KeyDef[]>("list_keys"),
-  apply: (mappings: Mapping[]) => invoke<ApplyResult>("apply_mappings", { mappings }),
+  preview: (config: Config) => invoke<Preview>("preview_config", { config }),
+  apply: (config: Config) => invoke<ApplyOutcome>("apply_config", { config }),
   setEnabled: (enabled: boolean) => invoke<Status>("set_enabled", { enabled }),
+  setProfile: (id: string) => invoke<Status>("set_profile", { id }),
   startDetect: () => invoke<Status>("start_detect"),
   cancelDetect: () => invoke<void>("cancel_detect"),
+  testMapping: (profile: string, mapping: string) => invoke<string>("test_mapping", { profile, mapping }),
+  confirmScript: (path: string) => invoke<ScriptInfo>("confirm_script", { path }),
+  importConfig: (path: string) => invoke<ApplyOutcome>("import_config", { path }),
+  exportConfig: (path: string) => invoke<void>("export_config", { path }),
+  backupNow: () => invoke<string>("backup_now"),
+  listBackups: () => invoke<BackupInfo[]>("list_backups"),
+  restoreBackup: (name: string) => invoke<ApplyOutcome>("restore_backup", { name }),
+  resetConfig: () => invoke<ApplyOutcome>("reset_config"),
+  logs: () => invoke<string[]>("get_logs"),
+  dismissNotice: () => invoke<void>("dismiss_notice"),
 };
 
-export function onEvent<T>(name: "status" | "key-detected" | "detect-ended" | "log", handler: (payload: T) => void): Promise<UnlistenFn> {
-  return listen<T>(`kf://${name}`, (e) => handler(e.payload));
+export interface Events {
+  status: Status;
+  "key-detected": DetectedKey;
+  "detect-ended": string;
+  fired: { profile: string; mapping: string };
+  profile: string;
+  log: string;
 }
 
-export const hex = (n: number, width = 2) => "0x" + n.toString(16).toUpperCase().padStart(width, "0");
+export function onEvent<K extends keyof Events>(name: K, handler: (payload: Events[K]) => void): Promise<UnlistenFn> {
+  return listen<Events[K]>(`kf://${name}`, (e) => handler(e.payload));
+}
 
-export function triggerLabel(t: Mapping["trigger"]): string {
-  return [t.ctrl && "Ctrl", t.shift && "Shift", t.alt && "Alt", t.win && "Win", t.key].filter(Boolean).join(" + ");
+export function errorText(e: unknown): string {
+  return typeof e === "string" ? e : e instanceof Error ? e.message : JSON.stringify(e);
 }
