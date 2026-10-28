@@ -169,7 +169,6 @@ pub fn generate(plan: &Plan<'_>, opts: &GenOptions<'_>) -> String {
                 let Action::Remap { to } = &m.action else { unreachable!() };
                 let target = keys::resolve(to).expect("validated key");
                 let _ = writeln!(hotkeys, "*{key}::KF_RemapDown({}, {}, {})", quote(&tag), quote(key), quote(&target.send));
-                up_keys.insert(key.clone());
             } else {
                 let hold = m.hold.as_ref().map(|a| gen.action(a, blind, &macros)).unwrap_or_else(|| "0".into());
                 let dbl = m.double_tap.as_ref().map(|a| gen.action(a, blind, &macros)).unwrap_or_else(|| "0".into());
@@ -183,16 +182,19 @@ pub fn generate(plan: &Plan<'_>, opts: &GenOptions<'_>) -> String {
                     quote(key)
                 );
             }
+            up_keys.insert(key.clone());
         }
     }
     hotkeys.push_str("#HotIf\n");
 
     if !up_keys.is_empty() {
-        hotkeys.push_str("\n; --- Remap releases (always active, so held keys are never left down)\n#SuspendExempt true\n");
+        // Active whenever a mapped key is down, whatever the profile or app,
+        // so a held key is always released.
+        hotkeys.push_str("\n; --- Key releases\n#SuspendExempt true\n");
         for key in &up_keys {
-            let _ = writeln!(hotkeys, "~*{key} up::KF_KeyUp({})", quote(key));
+            let _ = writeln!(hotkeys, "#HotIf KF_IsDown({})\n*{key} up::KF_Release({})", quote(key), quote(key));
         }
-        hotkeys.push_str("#SuspendExempt false\n");
+        hotkeys.push_str("#HotIf\n#SuspendExempt false\n");
     }
 
     let mut out = String::with_capacity(RUNTIME.len() + init.len() + hotkeys.len() + gen.functions.len() + 64);
@@ -229,7 +231,10 @@ mod tests {
         let out = generated(&config_with(vec![remap("play", "F13", "Media_Play_Pause"), remap("semi", "Semicolon", "vkE9sc0F1")]));
         assert!(out.contains("#HotIf KF_On(\"productivity\", \"\", \"\")\n*F13::KF_RemapDown(\"productivity/play\", \"F13\", \"Media_Play_Pause\")"), "{out}");
         assert!(out.contains("*SC027::KF_RemapDown(\"productivity/semi\", \"SC027\", \"vkE9\")"), "{out}");
-        assert!(out.contains("#SuspendExempt true\n~*F13 up::KF_KeyUp(\"F13\")\n~*SC027 up::KF_KeyUp(\"SC027\")\n#SuspendExempt false"), "{out}");
+        assert!(
+            out.contains("#SuspendExempt true\n#HotIf KF_IsDown(\"F13\")\n*F13 up::KF_Release(\"F13\")\n#HotIf KF_IsDown(\"SC027\")\n*SC027 up::KF_Release(\"SC027\")\n#HotIf\n#SuspendExempt false"),
+            "{out}"
+        );
         assert!(out.contains("KF_Tests[\"productivity/play\"] := KF_A1"), "{out}");
         assert!(out.contains("KF_A1() {\n    Send \"{Blind}{Media_Play_Pause}\"\n}"), "{out}");
         assert!(out.find("KF_Start()").unwrap() < out.find("*F13::").unwrap());
@@ -242,7 +247,7 @@ mod tests {
         let out = generated(&config_with(vec![m]));
         assert!(out.contains("+#F23::KF_Run(\"productivity/a\", \"F23\", 200, 0, KF_A1, 0, 0)"), "{out}");
         assert!(out.contains("Send \"{F13}\""), "non-blind send releases Shift+Win: {out}");
-        assert!(!out.contains("KF_KeyUp"));
+        assert!(out.contains("*F23 up::KF_Release(\"F23\")"), "{out}");
     }
 
     #[test]

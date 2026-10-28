@@ -33,7 +33,7 @@ global KF_Names := Map()      ; profile id -> display name
 global KF_AutoApps := Map()   ; process name -> profile id
 global KF_Disabled := Map()   ; profile id -> "|app.exe|other.exe|"
 global KF_Tests := Map()      ; mapping id -> action function
-global KF_Held := Map()       ; trigger key -> remap target currently held
+global KF_Down := Map()       ; trigger key held down -> remap target ("" if none)
 global KF_Pending := Map()    ; mapping id -> pending single-tap timer
 
 OnError(KF_OnError)
@@ -153,33 +153,55 @@ KF_Do(fn) {
         KF_Emit('{"event":"error","message":' KF_Json("Action failed: " KF_ErrText(e)) '}')
 }
 
+; Every mapped key has a key-up hotkey that is active while the key is down
+; (see the generated script), so releases are seen even if the profile or
+; foreground app changes while the key is held, and for both physical and
+; injected input.
+KF_IsDown(key) {
+    return KF_Down.Has(key)
+}
+
 ; Plain remap: the target goes down with the trigger and up with it, with
-; auto-repeat. The release is handled by a key-up hotkey that is always
-; active, so a context change while the key is held cannot leave it stuck.
+; auto-repeat.
 KF_RemapDown(id, key, target) {
-    if !KF_Held.Has(key)
+    if !KF_Down.Has(key)
         KF_Fired(id)
-    KF_Held[key] := target
+    KF_Down[key] := target
     SetKeyDelay -1
     Send "{Blind}{" target " DownR}"
 }
 
-KF_KeyUp(key) {
-    if KF_Held.Has(key) {
-        target := KF_Held.Delete(key)
+KF_Release(key) {
+    if !KF_Down.Has(key)
+        return
+    target := KF_Down.Delete(key)
+    if (target != "") {
         SetKeyDelay -1
         Send "{Blind}{" target " up}"
     }
 }
 
-; Press, tap/hold and double-tap. Fires once per physical press: auto-repeat
-; is swallowed by waiting for the key to be released.
+; Wait for the trigger key to be released; false if `limitMs` passed first.
+KF_WaitUp(key, limitMs := 30000) {
+    start := A_TickCount
+    while KF_Down.Has(key) {
+        if (A_TickCount - start >= limitMs)
+            return false
+        Sleep 10
+    }
+    return true
+}
+
+; Press, tap/hold and double-tap. Fires once per physical press: while this
+; waits for the release, auto-repeat presses of the same hotkey are dropped
+; (#MaxThreadsPerHotkey 1).
 KF_Run(id, key, holdMs, dblMs, tap, hold, dbl) {
+    KF_Down[key] := ""
     KF_Fired(id)
     if hold {
-        if !KeyWait(key, "T" (holdMs / 1000)) {
+        if !KF_WaitUp(key, holdMs) {
             KF_Do(hold)
-            KeyWait(key)
+            KF_WaitUp(key)
             return
         }
     }
@@ -195,7 +217,7 @@ KF_Run(id, key, holdMs, dblMs, tap, hold, dbl) {
     } else
         KF_Do(tap)
     if !hold
-        KeyWait(key)
+        KF_WaitUp(key)
 }
 
 KF_FirePending(id, tap) {
@@ -325,8 +347,9 @@ KF_Shutdown(reason, code) {
 }
 
 KF_OnExit(reason, code) {
-    for key, target in KF_Held
-        try Send("{Blind}{" target " up}")
+    for key, target in KF_Down
+        if (target != "")
+            try Send("{Blind}{" target " up}")
     KF_ReleaseModifiers()
 }
 
