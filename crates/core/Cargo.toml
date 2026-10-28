@@ -1,0 +1,10 @@
+[package]
+name = "keyforge-core"
+description = "Platform-independent KeyForge logic: key table, config model, validation, AutoHotkey code generation and engine protocol."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+serde.workspace = true
+serde_json.workspace = true

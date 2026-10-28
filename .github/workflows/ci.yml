@@ -1,0 +1,79 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+  AHK_VERSION: "2.0.19"
+
+jobs:
+  core:
+    name: Core tests (Linux)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo test
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+
+  windows:
+    name: Windows build, end-to-end tests, installer
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Fetch AutoHotkey v2
+        shell: pwsh
+        run: |
+          $zip = "AutoHotkey_$env:AHK_VERSION.zip"
+          Invoke-WebRequest "https://github.com/AutoHotkey/AutoHotkey/releases/download/v$env:AHK_VERSION/$zip" -OutFile ahk.zip
+          (Get-FileHash ahk.zip -Algorithm SHA256).Hash
+          Expand-Archive ahk.zip -DestinationPath ahk
+          $exe = Get-ChildItem ahk -Recurse -Filter AutoHotkey64.exe | Select-Object -First 1
+          Copy-Item $exe.FullName src-tauri/resources/engine/AutoHotkey64.exe
+          Get-ChildItem ahk -Recurse -Filter license.txt | Select-Object -First 1 | Copy-Item -Destination src-tauri/resources/engine/AutoHotkey-license.txt
+          "KEYFORGE_AHK=$PWD\src-tauri\resources\engine\AutoHotkey64.exe" >> $env:GITHUB_ENV
+
+      - name: Unit and end-to-end tests (real AutoHotkey, injected keys)
+        env:
+          KEYFORGE_REQUIRE_E2E: "1"
+        run: cargo test -p keyforge-core -p keyforge-engine -- --test-threads=1 --nocapture
+
+      - run: npm ci
+
+      - name: Build app and NSIS installer
+        run: npx tauri build
+
+      - name: Smoke test the release build
+        shell: pwsh
+        run: |
+          $p = Start-Process target/release/keyforge.exe -PassThru
+          Start-Sleep -Seconds 8
+          if ($p.HasExited) { throw "KeyForge exited during startup with code $($p.ExitCode)" }
+          Stop-Process -Id $p.Id
+          Get-ChildItem target/release/bundle/nsis | Format-Table Name, Length
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: keyforge-windows-installer
+          path: target/release/bundle/nsis/*.exe
+          if-no-files-found: error

@@ -1,0 +1,25 @@
+[workspace]
+resolver = "2"
+members = ["crates/core", "crates/engine", "src-tauri"]
+# `cargo test` at the root only builds the platform-independent crates, so it
+# also works on Linux/macOS CI without the WebView toolchain.
+default-members = ["crates/core", "crates/engine"]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+
+[workspace.dependencies]
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+windows-sys = "0.59"
+
+[profile.release]
+opt-level = "s"
+lto = true
+codegen-units = 1
+strip = true
+# A panic in the supervisor kills the process. That closes the job object,
+# which kills the AutoHotkey engine and so restores the keyboard.
+panic = "abort"

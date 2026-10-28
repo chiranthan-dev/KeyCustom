@@ -1,0 +1,20 @@
+[package]
+name = "keyforge"
+description = "KeyForge: custom keyboard mappings for Windows"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[lib]
+name = "keyforge_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+keyforge-core = { path = "../crates/core" }
+keyforge-engine = { path = "../crates/engine" }
+tauri = { version = "2", features = [] }
+serde.workspace = true
+serde_json.workspace = true
