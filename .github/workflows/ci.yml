@@ -56,7 +56,7 @@ jobs:
       - name: Unit and end-to-end tests (real AutoHotkey, injected keys)
         env:
           KEYFORGE_REQUIRE_E2E: "1"
-        run: cargo test -p keyforge-core -p keyforge-engine -- --test-threads=1 --nocapture
+        run: cargo test --no-fail-fast -p keyforge-core -p keyforge-engine -- --test-threads=1 --nocapture
 
       - run: npm ci
 
