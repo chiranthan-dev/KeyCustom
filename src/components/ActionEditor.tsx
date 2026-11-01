@@ -1,7 +1,7 @@
 import { ask, open } from "@tauri-apps/plugin-dialog";
 import { useState } from "react";
 import { api, errorText } from "../lib/api";
-import { ACTION_TYPES, MEDIA_LABELS, SYSTEM_GROUPS, defaultAction } from "../lib/model";
+import { ACTION_TYPES, DATE_FORMATS, MEDIA_LABELS, SYSTEM_GROUPS, defaultAction, formatDate, isValidDateFormat } from "../lib/model";
 import type { Action, ActionType, MediaAction, Profile, SystemAction } from "../lib/types";
 import { useStore } from "../store";
 import { ChordPicker, KeySelect } from "./pickers";
@@ -115,6 +115,8 @@ export function ActionEditor({ value, onChange, profile, label = "Action" }: { v
         </Field>
       )}
       {value.type === "script" && <ScriptEditor value={value} onChange={onChange} />}
+      {value.type === "block" && <p className="text-sm text-zinc-400">The key does nothing while this mapping is active, including in combinations (for example Win+E when the Windows key is blocked).</p>}
+      {value.type === "dateTime" && <DateFormatEditor format={value.format} onChange={(format) => onChange({ ...value, format })} />}
     </div>
   );
 }
@@ -162,6 +164,34 @@ function ScriptEditor({ value, onChange }: { value: Extract<Action, { type: "scr
       </div>
       <Checkbox checked={value.confirmEachRun} onChange={(confirmEachRun) => onChange({ ...value, confirmEachRun })} label="Ask before every run" />
       {error && <p className="text-sm text-red-300">{error}</p>}
+    </div>
+  );
+}
+
+export function DateFormatEditor({ format, onChange }: { format: string; onChange: (f: string) => void }) {
+  const preset = DATE_FORMATS.some((d) => d.format === format);
+  return (
+    <div className="grid gap-2">
+      <Field label="Format">
+        {(id) => (
+          <Select id={id} value={preset ? format : "custom"} onChange={(e) => onChange(e.target.value === "custom" ? format : e.target.value)}>
+            {DATE_FORMATS.map((d) => (
+              <option key={d.format} value={d.format}>
+                {d.label} — {formatDate(d.format)}
+              </option>
+            ))}
+            <option value="custom">Custom…</option>
+          </Select>
+        )}
+      </Field>
+      {!preset && (
+        <Field label="Custom format" hint="d, dd, ddd, dddd = day · M…MMMM = month · yy, yyyy = year · H/HH, h/hh = hour · mm = minutes · ss = seconds · tt = AM/PM">
+          {(id) => <Input id={id} value={format} onChange={(e) => onChange(e.target.value)} />}
+        </Field>
+      )}
+      <p className="text-sm text-zinc-400">
+        Types: <span className="font-mono text-zinc-200">{isValidDateFormat(format) ? formatDate(format) : "invalid format"}</span>
+      </p>
     </div>
   );
 }

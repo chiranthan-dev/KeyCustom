@@ -126,10 +126,15 @@ The configuration format, files and validation rules are documented in [CONFIG.m
 
 ## Health and recovery
 
-- While mappings are on, the controller pings the engine every 5 seconds. With no answer for 15 seconds, the engine is killed, mappings turn off and the reason is shown. A hung engine's hook has already been bypassed by Windows by then.
-- If the engine exits unexpectedly, mappings turn off rather than restarting automatically, so a crashing configuration cannot loop. The dashboard shows why, and the tray or dashboard turns them back on.
-- The tray menu (Pause, Resume, Open settings, Exit) works even while the window is hidden. Closing the window hides it to the tray (configurable).
-- A second KeyForge instance only focuses the first, so two engines can never compete.
+Mappings stay on until you turn them off. The engine is kept running as follows:
+
+- **Health checks.** Every 5 seconds the controller pings the engine. It counts as hung only when three pings in a row go unanswered. A check that runs late because the PC slept is not counted as a miss. Sleep is detected by comparing the monotonic and wall clocks.
+- **Wake from sleep.** After the PC wakes, the engine is restarted. Windows can silently drop keyboard hooks across sleep, and a fresh engine reinstalls the hook.
+- **Automatic restart.** If the engine crashes, is killed, or hangs, it is restarted after one second and mappings stay on. After three restarts within a minute, KeyForge gives up, turns mappings off and shows why, so a configuration that keeps crashing cannot loop.
+- **Remembered choice.** Your on/off choice is saved in `state.json`. With `launchMappings: "restore"` (the default), mappings come back as you left them after a restart or reboot. The emergency shortcut saves "off".
+- **Start with Windows.** A per-user `Run` entry (no administrator rights) starts `keyforge.exe --autostart`, which stays in the tray. If the entry was disabled in Task Manager's Startup tab, the app shows it as off.
+- **Tray.** The tray icon shows the state (colour with a green dot when on, grey when off). The tray menu (Pause, Resume, Open settings, Exit) works even while the window is hidden. Closing the window hides it to the tray (configurable).
+- **Single instance.** A second KeyForge instance only focuses the first, so two engines can never compete.
 
 ## Delivery stages
 

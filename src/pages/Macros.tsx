@@ -1,9 +1,9 @@
 import { useState } from "react";
-import { browseFile } from "../components/ActionEditor";
+import { DateFormatEditor, browseFile } from "../components/ActionEditor";
 import { ChordPicker } from "../components/pickers";
 import { Badge, Button, Card, Empty, Field, Input, PageHeader, Select, TextArea } from "../components/ui";
-import { describeStep, newId } from "../lib/model";
-import type { Macro, Profile, Step } from "../lib/types";
+import { MEDIA_LABELS, SYSTEM_GROUPS, describeStep, newId } from "../lib/model";
+import type { Macro, MediaAction, Profile, Step, SystemAction } from "../lib/types";
 import { useEditedProfile, useStore } from "../store";
 
 const STEP_TYPES: { type: Step["type"]; label: string; make: () => Step }[] = [
@@ -12,6 +12,9 @@ const STEP_TYPES: { type: Step["type"]; label: string; make: () => Step }[] = [
   { type: "delay", label: "Wait", make: () => ({ type: "delay", ms: 200 }) },
   { type: "launch", label: "Open app", make: () => ({ type: "launch", path: "", args: "" }) },
   { type: "url", label: "Open website", make: () => ({ type: "url", url: "https://" }) },
+  { type: "media", label: "Media", make: () => ({ type: "media", action: "playPause" }) },
+  { type: "system", label: "Windows", make: () => ({ type: "system", action: "showDesktop" }) },
+  { type: "dateTime", label: "Date/time", make: () => ({ type: "dateTime", format: "yyyy-MM-dd" }) },
 ];
 
 export function Macros() {
@@ -175,5 +178,31 @@ function StepEditor({ step, onChange }: { step: Step; onChange: (s: Step) => voi
       );
     case "url":
       return <Input aria-label="Web address" className="w-full" value={step.url} onChange={(e) => onChange({ ...step, url: e.target.value.trim() })} />;
+    case "media":
+      return (
+        <Select aria-label="Media control" value={step.action} onChange={(e) => onChange({ ...step, action: e.target.value as MediaAction })}>
+          {Object.entries(MEDIA_LABELS).map(([k, v]) => (
+            <option key={k} value={k}>
+              {v}
+            </option>
+          ))}
+        </Select>
+      );
+    case "system":
+      return (
+        <Select aria-label="Windows action" value={step.action} onChange={(e) => onChange({ ...step, action: e.target.value as SystemAction })}>
+          {SYSTEM_GROUPS.map((g) => (
+            <optgroup key={g.label} label={g.label}>
+              {g.items.map(([k, v]) => (
+                <option key={k} value={k}>
+                  {v}
+                </option>
+              ))}
+            </optgroup>
+          ))}
+        </Select>
+      );
+    case "dateTime":
+      return <DateFormatEditor format={step.format} onChange={(format) => onChange({ ...step, format })} />;
   }
 }

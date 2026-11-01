@@ -23,7 +23,16 @@ KeyForge is a small Tauri app (Rust and React, using Windows' built-in WebView2)
   - tap vs hold with a configurable threshold;
   - double tap;
   - each mapping fires once per press, without auto-repeat triggers or stuck keys.
-- **Macro Builder:** add, reorder, duplicate, edit and delete key, text, delay, app and URL steps without code.
+- **Templates:** 68 ready-made shortcuts, snippets and routines. Examples:
+  - window snapping and virtual desktops;
+  - browser tabs;
+  - today's date and the current time;
+  - a sign-off and your email address;
+  - "Step away" (pause music, mute, lock);
+  - disabling the Windows key or Caps Lock.
+
+  Pick one, choose a key, done.
+- **Macro Builder:** add, reorder, duplicate, edit and delete steps without code. Steps can be keys, text, date/time, waits, apps, websites, media and Windows actions.
 - **Profiles:** Productivity, Coding, Study and Gaming to start with; add your own. Switch with a shortcut, from the dashboard or tray, or automatically while a chosen app is in front.
 - **Application rules:** app-specific mappings that override global ones, or all mappings off in an app (e.g. games).
 - **Changes:**
@@ -34,10 +43,10 @@ KeyForge is a small Tauri app (Rust and React, using Windows' built-in WebView2)
 
 ## Safety
 
-- Mappings are **off** when KeyForge starts, unless you opt in.
-- **Ctrl+Alt+Shift+Backspace** turns everything off at once, and no mapping can override it. Windows also delivers it to KeyForge directly if the engine is not responding.
+- **Stays on until you turn it off.** Your on/off choice survives restarts. A crashed or frozen engine restarts by itself, and so does the engine after the PC wakes from sleep. KeyForge can start with Windows (Settings → Startup), quietly in the tray. The tray icon shows whether mappings are on.
+- **Ctrl+Alt+Shift+Backspace** turns everything off at once, and they stay off until you turn them back on. No mapping can override it. Windows also delivers it to KeyForge directly if the engine is not responding.
 - The tray menu offers Pause, Resume, Open settings and Exit.
-- If the engine crashes or is killed, Windows removes its keyboard hook. KeyForge then releases stuck modifiers and turns mappings off. If KeyForge itself crashes, Windows ends the engine as well; this is tested.
+- If the engine crashes or is killed, Windows removes its keyboard hook, KeyForge releases stuck modifiers and restarts it. After three failures within a minute it turns mappings off and says why. If KeyForge itself crashes, Windows ends the engine as well; this is tested.
 - Changes are validated first and applied atomically. The previous configuration is kept as last-known-good and restored if the new one fails to load.
 - No keystroke logging, clipboard access or network use. Detection reads one key on request.
 - Scripts must be confirmed. KeyForge runs a private copy pinned by SHA-256 and, by default, asks before each run.
@@ -126,7 +135,8 @@ cargo test -p keyforge-engine --test windows_e2e -- --test-threads=1
 | Keys feel wrong or stuck | Press **Ctrl+Alt+Shift+Backspace**, then press and release Ctrl, Alt, Shift and Win once. |
 | "AutoHotkey v2 was not found" | Reinstall KeyForge, or set a custom path in **Settings → Engine**. |
 | "AutoHotkey v2 is required, found 1.x" | The custom path or `KEYFORGE_AHK` points at v1. Point it at the v2 `AutoHotkey64.exe`. |
-| "The engine stopped unexpectedly" | Mappings were turned off to keep the keyboard safe. **Settings → Diagnostics** shows the engine's messages. Turn mappings back on after fixing the cause. |
+| "…KeyForge gave up" | The engine crashed three times within a minute, so mappings were turned off to keep the keyboard safe. **Settings → Diagnostics** shows the engine's messages. Turn mappings back on after fixing the cause (often a recent change; Undo or restore a backup). |
+| Mappings stopped after the PC slept | They should come back by themselves within a few seconds of waking. If not, check **Settings → Diagnostics** and report what it says. |
 | A notice says the configuration was restored | `config.json` was damaged and set aside (named in the notice). The last working configuration is active. |
 | An action fails (app won't open, etc.) | **Settings → Diagnostics** shows the error from the engine. |
 

@@ -23,6 +23,9 @@ export const api = {
   resetConfig: () => invoke<ApplyOutcome>("reset_config"),
   logs: () => invoke<string[]>("get_logs"),
   dismissNotice: () => invoke<void>("dismiss_notice"),
+  finishFirstRun: () => invoke<void>("finish_first_run"),
+  getAutostart: () => invoke<boolean>("get_autostart"),
+  setAutostart: (enabled: boolean) => invoke<boolean>("set_autostart", { enabled }),
 };
 
 export interface Events {

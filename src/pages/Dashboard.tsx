@@ -31,7 +31,7 @@ export function Dashboard() {
               <p className="text-sm text-zinc-400">
                 {status.enabled
                   ? "Your mappings work in every app that is not running as administrator."
-                  : "Keys behave normally. Turn mappings on to use them. KeyForge always starts paused unless you change that in Settings."}
+                  : "Keys behave normally until you turn mappings on. KeyForge remembers your choice across restarts."}
               </p>
             </div>
           </div>

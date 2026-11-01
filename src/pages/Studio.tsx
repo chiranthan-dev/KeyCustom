@@ -201,7 +201,7 @@ function ProfileScope({ profile }: { profile: Profile }) {
 }
 
 function KeyPanel({ keyId, profile, detected }: { keyId: string; profile: Profile; detected: DetectedKey | null }) {
-  const { state, edit } = useStore();
+  const { state, edit, dispatch } = useStore();
   const def: KeyDef | undefined = state.keys.find((k) => k.id.toLowerCase() === keyId.toLowerCase());
   const maps = profile.mappings.filter((m) => m.trigger.key.toLowerCase() === keyId.toLowerCase());
   const [editing, setEditing] = useState<Mapping | null>(null);
@@ -256,9 +256,14 @@ function KeyPanel({ keyId, profile, detected }: { keyId: string; profile: Profil
         <MappingEditor key={editing.id} initial={editing} profile={profile} onSave={save} onCancel={() => setEditing(null)} />
       ) : (
         <div className="mt-4">
-          <Button variant="primary" onClick={startNew} disabled={keyId === "Backspace"}>
-            Add mapping
-          </Button>
+          <div className="flex flex-wrap gap-2">
+            <Button variant="primary" onClick={startNew} disabled={keyId === "Backspace"}>
+              Add mapping
+            </Button>
+            <Button onClick={() => dispatch({ t: "nav", page: "templates", selectedKey: keyId })} disabled={keyId === "Backspace"}>
+              Use a template
+            </Button>
+          </div>
         </div>
       )}
     </Card>

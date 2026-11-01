@@ -292,6 +292,36 @@ fn every_action_and_feature_loads_in_autohotkey() {
     assert_eq!(engine.stop(Duration::from_secs(3)), Some(exit_code::REQUESTED));
 }
 
+#[test]
+fn every_template_loads_in_autohotkey() {
+    let _g = serial();
+    let Some(exe) = ahk_exe() else { return };
+    let (engine, _rx) = start_config(&exe, "templates", &keyforge_core::fixtures::all_templates_config());
+    assert_eq!(engine.stop(Duration::from_secs(3)), Some(exit_code::REQUESTED));
+}
+
+#[test]
+fn block_and_date_time_actions() {
+    let _g = serial();
+    let Some(exe) = ahk_exe() else { return };
+    let observer = Observer::start();
+    let (engine, _rx) = start(
+        &exe,
+        "block-date",
+        vec![mapping("b", "F20", Action::Block), mapping("d", "F21", Action::DateTime { format: "yyyy".into() })],
+    );
+    tap(VK_F20);
+    settle(300);
+    assert!(observer.seen().is_empty(), "blocked key produced input: {:?}", observer.seen());
+    tap(VK_F21);
+    settle(400);
+    // The year is typed as four characters (digits may be sent as key
+    // events or as Unicode packets depending on the layout).
+    let downs = observer.seen().iter().filter(|&&(vk, up, _)| !up && vk != VK_F21 as u32).count();
+    assert_eq!(downs, 4, "{:?}", observer.seen());
+    engine.stop(Duration::from_secs(3));
+}
+
 // --- Engine behaviour -------------------------------------------------------------
 
 #[test]
@@ -601,6 +631,19 @@ fn engine_dies_with_supervisor() {
     assert!(process_exits(pid, Duration::from_secs(3)), "engine outlived its supervisor");
 }
 
+#[test]
+fn start_with_windows_registration() {
+    use keyforge_engine::win::{run_at_login, set_run_at_login};
+    let name = "KeyForgeE2ETest";
+    set_run_at_login(name, None).unwrap();
+    assert_eq!(run_at_login(name), None);
+    set_run_at_login(name, Some("\"C:\\Program Files\\KeyForge\\keyforge.exe\" --autostart")).unwrap();
+    assert_eq!(run_at_login(name).as_deref(), Some("\"C:\\Program Files\\KeyForge\\keyforge.exe\" --autostart"));
+    set_run_at_login(name, None).unwrap();
+    assert_eq!(run_at_login(name), None);
+    set_run_at_login(name, None).unwrap(); // removing twice is fine
+}
+
 // --- The app's own flow, through the controller -------------------------------
 
 #[derive(Default)]
@@ -672,4 +715,35 @@ fn controller_detect_apply_enable_test_disable() {
     assert_eq!(snapshot.config.profiles[0].mappings.len(), 1);
     assert!(!snapshot.status.enabled);
     reopened.shutdown();
+}
+
+#[test]
+fn controller_restarts_a_killed_engine_and_mappings_keep_working() {
+    let _g = serial();
+    if ahk_exe().is_none() {
+        return;
+    }
+    let observer = Observer::start();
+    let mut options = Options::new(temp_dir("controller-restart"));
+    options.restart_delay = Duration::from_millis(200);
+    let controller = Controller::new(options, Arc::new(Recorder::default()));
+    assert!(controller.apply(config_with(vec![remap("r", "F20", "F21")])).unwrap().applied);
+    controller.set_enabled(true).unwrap();
+    let first = controller.engine_pid().unwrap();
+
+    // Kill the engine the hard way, as a crash or Task Manager would.
+    let killed = std::process::Command::new("taskkill").args(["/F", "/PID", &first.to_string()]).output().unwrap();
+    assert!(killed.status.success(), "{killed:?}");
+    let deadline = Instant::now() + Duration::from_secs(10);
+    while controller.engine_pid().is_none_or(|p| p == first) {
+        assert!(Instant::now() < deadline, "engine was not restarted");
+        settle(50);
+    }
+    assert!(controller.status().enabled, "mappings stay on");
+
+    observer.clear();
+    tap(VK_F20);
+    settle(400);
+    assert!(observer.saw(VK_F21, false) && !observer.saw_any(VK_F20), "remap after restart: {:?}", observer.seen());
+    controller.shutdown();
 }

@@ -10,6 +10,7 @@ KeyForge stores everything in `%LOCALAPPDATA%\dev.keyforge.app\`:
 | `backups/config-<time>-<reason>.json` | Automatic backups (before import, restore and reset) and manual ones. The newest 20 are kept. |
 | `engine/keyforge.ahk` | The generated engine script. It is rewritten on every apply; do not edit it. |
 | `scripts/<sha256>.<ext>` | Private copies of confirmed scripts. Only these copies are ever run. |
+| `state.json` | Not configuration: whether you left mappings on, and whether the welcome prompt was answered. |
 
 Every write is atomic: KeyForge writes a temporary file, then renames it over the target.
 
@@ -34,7 +35,7 @@ Unknown fields are ignored. Optional fields can be left out. A complete example 
     "tapHoldMs": 200,                 // 100–2000: hold longer than this to run a hold action
     "doubleTapMs": 250,               // 100–1000: window for the second tap
     "closeToTray": true,
-    "enableOnLaunch": false,          // opt-in; mappings start off by default
+    "launchMappings": "restore",      // "restore" (as you left them), "on" or "off"
     "ahkPath": null                   // optional custom AutoHotkey64.exe
   },
   "profiles": [ /* 1–32 profiles */ ]
@@ -89,6 +90,8 @@ Unknown fields are ignored. Optional fields can be left out. A complete example 
 | `macro` | `macro`: macro id | Runs a macro from the same profile. |
 | `media` | `action`: `playPause` `next` `previous` `stop` `volumeUp` `volumeDown` `mute` | |
 | `system` | `action`: see below | Opens a fixed target; nothing user-supplied is executed. |
+| `block` | — | The key does nothing, including in combinations (e.g. disable the Windows key). |
+| `dateTime` | `format` | Types the current date/time. The format uses `d dd ddd dddd`, `M MM MMM MMMM`, `y yy yyyy`, `H HH h hh`, `m mm`, `s ss`, `t tt`, plus spaces and `: / - . , _`. |
 | `script` | `path`, `sha256`, `confirmEachRun` | Runs `.ps1` (PowerShell), `.bat` or `.cmd`. `sha256` must match KeyForge's private copy, which is made when you confirm the script in the app. With `confirmEachRun`, every run asks first. |
 
 `system` actions:
@@ -108,6 +111,9 @@ Unknown fields are ignored. Optional fields can be left out. A complete example 
 | `delay` | `ms` (1–60 000) |
 | `launch` | `path`, `args` |
 | `url` | `url` |
+| `media` | `action` (as in the media action) |
+| `system` | `action` (as in the system action) |
+| `dateTime` | `format` (as in the date/time action) |
 
 Keys that a macro sends never trigger other mappings.
 

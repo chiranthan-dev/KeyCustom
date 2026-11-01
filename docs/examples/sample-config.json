@@ -1,7 +1,7 @@
 {
   "version": 1,
   "activeProfile": "productivity",
-  "settings": { "tapHoldMs": 200, "doubleTapMs": 250, "closeToTray": true, "enableOnLaunch": false },
+  "settings": { "tapHoldMs": 200, "doubleTapMs": 250, "closeToTray": true, "launchMappings": "restore" },
   "profiles": [
     {
       "id": "productivity",

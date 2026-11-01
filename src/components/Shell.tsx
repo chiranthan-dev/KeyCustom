@@ -9,6 +9,7 @@ import { Alert, Button, Dialog, Toggle } from "./ui";
 const NAV: { page: Page; label: string; icon: string }[] = [
   { page: "dashboard", label: "Dashboard", icon: "◧" },
   { page: "studio", label: "Keyboard Studio", icon: "⌨" },
+  { page: "templates", label: "Templates", icon: "✦" },
   { page: "macros", label: "Macro Builder", icon: "≡" },
   { page: "profiles", label: "Profiles", icon: "◎" },
   { page: "apps", label: "Application Rules", icon: "▣" },
@@ -227,5 +228,42 @@ export function StatusBanners() {
       )}
       {!s.ahkPath && <Alert tone="error">AutoHotkey v2 was not found. Reinstall KeyForge, or set a custom AutoHotkey path in Settings.</Alert>}
     </div>
+  );
+}
+
+/** Shown once: offers to start KeyForge with Windows. */
+export function Welcome() {
+  const { state, dispatch, run, toast } = useStore();
+  const finish = async (autostart: boolean) => {
+    if (autostart) {
+      const ok = await run(() => api.setAutostart(true));
+      if (ok) toast("ok", "KeyForge will start when you sign in. You can change this in Settings.");
+    }
+    await run(() => api.finishFirstRun());
+    dispatch({ t: "first-run-done" });
+  };
+  return (
+    <Dialog
+      title="Welcome to KeyForge"
+      open={state.firstRun}
+      onClose={() => finish(false)}
+      footer={
+        <>
+          <Button variant="ghost" onClick={() => finish(false)}>
+            Not now
+          </Button>
+          <Button variant="primary" onClick={() => finish(true)}>
+            Start with Windows
+          </Button>
+        </>
+      }
+    >
+      <div className="grid gap-3 text-sm text-zinc-300">
+        <p>Should KeyForge start automatically when you sign in? It runs quietly in the tray so your keys work right away.</p>
+        <p className="text-zinc-400">
+          Mappings stay on or off as you leave them. <b>Ctrl+Alt+Shift+Backspace</b> always turns them off.
+        </p>
+      </div>
+    </Dialog>
   );
 }

@@ -205,6 +205,10 @@ pub enum Action {
         #[serde(default = "yes")]
         confirm_each_run: bool,
     },
+    /// Swallow the key: it does nothing (e.g. the Windows key while gaming).
+    Block,
+    /// Type the current date and/or time, e.g. `yyyy-MM-dd` or `HH:mm`.
+    DateTime { format: String },
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -219,6 +223,9 @@ pub enum Step {
         args: String,
     },
     Url { url: String },
+    Media { action: MediaAction },
+    System { action: SystemAction },
+    DateTime { format: String },
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -305,8 +312,8 @@ pub struct Settings {
     pub tap_hold_ms: u32,
     pub double_tap_ms: u32,
     pub close_to_tray: bool,
-    /// Opt-in: turn mappings on when KeyForge starts. Off by default.
-    pub enable_on_launch: bool,
+    /// Whether mappings are on when KeyForge starts.
+    pub launch_mappings: LaunchMappings,
     /// Custom AutoHotkey v2 executable; the bundled copy is used otherwise.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub ahk_path: Option<String>,
@@ -314,8 +321,18 @@ pub struct Settings {
 
 impl Default for Settings {
     fn default() -> Self {
-        Settings { tap_hold_ms: 200, double_tap_ms: 250, close_to_tray: true, enable_on_launch: false, ahk_path: None }
+        Settings { tap_hold_ms: 200, double_tap_ms: 250, close_to_tray: true, launch_mappings: LaunchMappings::Restore, ahk_path: None }
     }
+}
+
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum LaunchMappings {
+    /// Same as when KeyForge last ran: on unless you turned them off.
+    #[default]
+    Restore,
+    Off,
+    On,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]

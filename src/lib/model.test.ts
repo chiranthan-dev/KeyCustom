@@ -5,7 +5,7 @@ import type { Config } from "./types";
 const base = (): Config => ({
   version: 1,
   activeProfile: "p",
-  settings: { tapHoldMs: 200, doubleTapMs: 250, closeToTray: true, enableOnLaunch: false },
+  settings: { tapHoldMs: 200, doubleTapMs: 250, closeToTray: true, launchMappings: "restore" },
   profiles: [{ id: "p", name: "Work", autoApps: [], mappings: [], macros: [], appRules: [] }],
 });
 
@@ -53,5 +53,19 @@ describe("model", () => {
     renamed.profiles[0].name = "Focus";
     renamed.settings.tapHoldMs = 300;
     expect(diffConfigs(before, renamed)).toEqual(['Rename profile "Work" to "Focus"', "Settings changed"]);
+  });
+});
+
+describe("templates", () => {
+  it("have unique ids, known groups and exactly one of action or macro", async () => {
+    const { TEMPLATES, TEMPLATE_GROUPS } = await import("./templates");
+    const groups = new Set(TEMPLATE_GROUPS.map((g) => g.group));
+    const ids = new Set<string>();
+    for (const t of TEMPLATES) {
+      expect(ids.has(t.id), t.id).toBe(false);
+      ids.add(t.id);
+      expect(groups.has(t.group), t.group).toBe(true);
+      expect(!!t.action !== !!t.macro, t.id).toBe(true);
+    }
   });
 });

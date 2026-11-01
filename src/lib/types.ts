@@ -27,7 +27,9 @@ export type Action =
   | { type: "macro"; macro: string }
   | { type: "media"; action: MediaAction }
   | { type: "system"; action: SystemAction }
-  | { type: "script"; path: string; sha256: string; confirmEachRun: boolean };
+  | { type: "script"; path: string; sha256: string; confirmEachRun: boolean }
+  | { type: "block" }
+  | { type: "dateTime"; format: string };
 
 export type ActionType = Action["type"];
 
@@ -36,7 +38,10 @@ export type Step =
   | { type: "text"; text: string }
   | { type: "delay"; ms: number }
   | { type: "launch"; path: string; args?: string }
-  | { type: "url"; url: string };
+  | { type: "url"; url: string }
+  | { type: "media"; action: MediaAction }
+  | { type: "system"; action: SystemAction }
+  | { type: "dateTime"; format: string };
 
 export interface Mapping {
   id: string;
@@ -79,7 +84,7 @@ export interface Settings {
   tapHoldMs: number;
   doubleTapMs: number;
   closeToTray: boolean;
-  enableOnLaunch: boolean;
+  launchMappings: "restore" | "off" | "on";
   ahkPath?: string | null;
 }
 
@@ -127,6 +132,7 @@ export interface Report {
 export interface Snapshot {
   config: Config;
   status: Status;
+  firstRun: boolean;
 }
 
 export interface ApplyOutcome {

@@ -5,7 +5,7 @@
 
 use crate::{locate, wait_ready, Engine, EngineEvent, Launch};
 use keyforge_core::ahk::{self, script_copy_name, GenOptions};
-use keyforge_core::config::{Action, Config, Profile};
+use keyforge_core::config::{Action, Config, LaunchMappings, Profile};
 use keyforge_core::protocol::{exit_code, Command, Event};
 use keyforge_core::store::{self, BackupInfo, Store};
 use keyforge_core::validate::{self, script_kind, Report, EMERGENCY_LABEL};
@@ -17,9 +17,14 @@ use std::path::{Path, PathBuf};
 use std::sync::mpsc::{self, Receiver};
 use std::sync::{Arc, Mutex, MutexGuard, Weak};
 use std::thread;
-use std::time::{Duration, Instant};
+use std::time::{Duration, Instant, SystemTime};
 
 const READY_TIMEOUT: Duration = Duration::from_secs(5);
+/// Pings that must go unanswered in a row before the engine counts as hung.
+const MISSED_PINGS_LIMIT: u32 = 3;
+/// Automatic restarts allowed within `RESTART_WINDOW` before giving up.
+const MAX_RESTARTS: usize = 3;
+const RESTART_WINDOW: Duration = Duration::from_secs(60);
 const STOP_GRACE: Duration = Duration::from_millis(1500);
 const MAX_LOG: usize = 100;
 const MAX_SCRIPT_BYTES: u64 = 1024 * 1024;
@@ -39,13 +44,21 @@ pub struct Options {
     /// How to start the engine for (exe, script). Defaults to AutoHotkey.
     pub launcher: Option<Launcher>,
     /// Interval of engine health pings. The engine is considered hung after
-    /// three intervals without an answer.
+    /// three pings in a row go unanswered.
     pub health_interval: Duration,
+    /// Pause before restarting an engine that crashed or hung.
+    pub restart_delay: Duration,
 }
 
 impl Options {
     pub fn new(data_dir: impl Into<PathBuf>) -> Options {
-        Options { data_dir: data_dir.into(), bundled_ahk_dir: None, launcher: None, health_interval: Duration::from_secs(5) }
+        Options {
+            data_dir: data_dir.into(),
+            bundled_ahk_dir: None,
+            launcher: None,
+            health_interval: Duration::from_secs(5),
+            restart_delay: Duration::from_secs(1),
+        }
     }
 }
 
@@ -71,6 +84,8 @@ pub struct Status {
 pub struct Snapshot {
     pub config: Config,
     pub status: Status,
+    /// The welcome prompt has not been answered yet.
+    pub first_run: bool,
 }
 
 #[derive(Serialize, Clone, Debug)]
@@ -105,6 +120,8 @@ struct Inner {
     /// Incremented for every engine start and stop, so events from an engine
     /// that was replaced or stopped on purpose are ignored.
     generation: u64,
+    /// Mappings should be on. Stays true while a crashed or hung engine is
+    /// being restarted; only the user (or giving up) turns it off.
     enabled: bool,
     detecting: bool,
     ahk_version: Option<String>,
@@ -112,7 +129,9 @@ struct Inner {
     last_error: Option<String>,
     notice: Option<String>,
     emergency_registered: bool,
-    last_pong: Option<Instant>,
+    awaiting_pong: bool,
+    missed_pings: u32,
+    restarts: VecDeque<Instant>,
     pending_test: Option<(String, mpsc::Sender<()>)>,
     log: VecDeque<String>,
 }
@@ -121,7 +140,7 @@ pub struct Controller {
     store: Store,
     bundled_ahk_dir: Option<PathBuf>,
     launcher: Launcher,
-    health_interval: Duration,
+    restart_delay: Duration,
     sink: Arc<dyn Sink>,
     inner: Mutex<Inner>,
 }
@@ -146,7 +165,7 @@ impl Controller {
             store,
             bundled_ahk_dir: options.bundled_ahk_dir,
             launcher,
-            health_interval: options.health_interval,
+            restart_delay: options.restart_delay,
             sink,
             inner: Mutex::new(Inner { config: loaded.config, notice: loaded.notice, ..Inner::default() }),
         });
@@ -214,12 +233,52 @@ impl Controller {
 
     pub fn snapshot(&self) -> Snapshot {
         let inner = self.lock();
-        Snapshot { config: inner.config.clone(), status: self.status_of(&inner) }
+        Snapshot { config: inner.config.clone(), status: self.status_of(&inner), first_run: !self.store.load_state().first_run_done }
+    }
+
+    pub fn mark_first_run_done(&self) {
+        let mut state = self.store.load_state();
+        state.first_run_done = true;
+        let _ = self.store.save_state(&state);
+    }
+
+    /// Persist the user's on/off choice so it survives restarts.
+    fn remember(&self, on: bool) {
+        let mut state = self.store.load_state();
+        if state.mappings_on != on {
+            state.mappings_on = on;
+            let _ = self.store.save_state(&state);
+        }
+    }
+
+    /// Turn mappings on at startup according to `settings.launchMappings`
+    /// (by default: as the user left them). Does not change the saved choice.
+    pub fn start_on_launch(self: &Arc<Self>) {
+        let mode = self.lock().config.settings.launch_mappings;
+        let on = match mode {
+            LaunchMappings::Restore => self.store.load_state().mappings_on,
+            LaunchMappings::On => true,
+            LaunchMappings::Off => false,
+        };
+        if !on {
+            return;
+        }
+        let mut inner = self.lock();
+        match self.start(&mut inner, true) {
+            Ok(()) => inner.enabled = true,
+            Err(e) => inner.last_error = Some(format!("Mappings could not be turned on at startup: {e}")),
+        }
+        self.publish(&inner);
     }
 
     /// Never blocks: used from the window's close handler on the main thread.
     pub fn close_to_tray(&self) -> bool {
         self.inner.try_lock().map(|i| i.config.settings.close_to_tray).unwrap_or(true)
+    }
+
+    /// Process id of the running engine, for diagnostics and tests.
+    pub fn engine_pid(&self) -> Option<u32> {
+        self.lock().engine.as_ref().map(|e| e.pid())
     }
 
     pub fn logs(&self) -> Vec<String> {
@@ -312,6 +371,8 @@ impl Controller {
 
     pub fn set_enabled(self: &Arc<Self>, enabled: bool) -> Result<Status, String> {
         let mut inner = self.lock();
+        self.remember(enabled);
+        inner.restarts.clear();
         if enabled {
             if let Err(e) = self.start(&mut inner, true) {
                 inner.enabled = false;
@@ -482,6 +543,7 @@ impl Controller {
         let mut inner = self.lock();
         let was_running = inner.engine.is_some();
         inner.enabled = false;
+        self.remember(false);
         self.stop(&mut inner);
         #[cfg(windows)]
         crate::win::release_stuck_modifiers();
@@ -529,14 +591,15 @@ impl Controller {
         inner.ahk_version = Some(ready.ahk_version);
         inner.elevated_engine = ready.admin;
         inner.engine = Some(engine);
-        inner.last_pong = Some(Instant::now());
+        inner.awaiting_pong = false;
+        inner.missed_pings = 0;
         let this = Arc::clone(self);
         let generation = inner.generation;
         thread::Builder::new().name("kf-engine-events".into()).spawn(move || this.forward(generation, rx)).map_err(|e| e.to_string())?;
         Ok(())
     }
 
-    fn forward(&self, generation: u64, rx: Receiver<EngineEvent>) {
+    fn forward(self: &Arc<Self>, generation: u64, rx: Receiver<EngineEvent>) {
         let mut exit_reason = None;
         for event in rx {
             let mut inner = self.lock();
@@ -574,55 +637,121 @@ impl Controller {
                     self.sink.emit("profile", json!(id));
                     self.publish(&inner);
                 }
-                EngineEvent::Protocol(Event::Pong) => inner.last_pong = Some(Instant::now()),
+                EngineEvent::Protocol(Event::Pong) => {
+                    inner.awaiting_pong = false;
+                    inner.missed_pings = 0;
+                }
                 EngineEvent::Protocol(Event::Exit { reason }) => exit_reason = Some(reason),
                 EngineEvent::Protocol(Event::Error { message }) => self.log(&mut inner, format!("Engine: {message}")),
                 EngineEvent::Stderr(line) | EngineEvent::Unparsed(line) => self.log(&mut inner, line),
                 EngineEvent::Protocol(Event::Ready { .. } | Event::DetectStarted) => {}
                 EngineEvent::Exited { code } => {
-                    // The engine exited without being asked to.
+                    // The engine exited without being asked to. Windows has
+                    // already removed its hook; release anything it held.
                     inner.engine = None;
                     inner.detecting = false;
-                    let was_enabled = std::mem::replace(&mut inner.enabled, false);
                     #[cfg(windows)]
                     crate::win::release_stuck_modifiers();
                     let emergency = code == Some(exit_code::EMERGENCY) || exit_reason.as_deref() == Some("emergency");
-                    let msg = if emergency {
-                        format!("Emergency shortcut ({EMERGENCY_LABEL}) pressed. All mappings are off.")
-                    } else {
-                        format!("The engine stopped unexpectedly (exit code {code:?}). Mappings are off and the keyboard is back to normal.")
-                    };
-                    if was_enabled || emergency {
+                    if emergency {
+                        inner.enabled = false;
+                        self.remember(false);
+                        let msg = format!("Emergency shortcut ({EMERGENCY_LABEL}) pressed. All mappings are off until you turn them on again.");
                         inner.last_error = Some(msg.clone());
+                        self.log(&mut inner, msg);
+                    } else if inner.enabled {
+                        self.schedule_restart(&mut inner, format!("The engine stopped unexpectedly (exit code {code:?})."));
                     }
-                    self.log(&mut inner, msg);
                     self.publish(&inner);
                 }
             }
         }
     }
 
-    fn health_check(&self) {
-        let mut inner = self.lock();
-        let Some(last) = inner.last_pong else { return };
-        if inner.engine.is_none() {
+    /// Restart a crashed or hung engine after a short pause, keeping
+    /// mappings on. Gives up after `MAX_RESTARTS` within `RESTART_WINDOW` so
+    /// a configuration that keeps crashing cannot loop forever.
+    fn schedule_restart(self: &Arc<Self>, inner: &mut Inner, why: String) {
+        let now = Instant::now();
+        inner.restarts.retain(|t| now.duration_since(*t) < RESTART_WINDOW);
+        if inner.restarts.len() >= MAX_RESTARTS {
+            inner.enabled = false;
+            inner.restarts.clear();
+            let msg = format!("{why} It was restarted {MAX_RESTARTS} times within a minute, so KeyForge gave up. Mappings are off; turn them on to try again.");
+            inner.last_error = Some(msg.clone());
+            self.log(inner, msg);
             return;
         }
-        if last.elapsed() > self.health_interval * 3 {
-            // Hung: Windows already bypasses its hook, so keys work, but its
-            // mappings do not. Kill it and say so.
+        inner.restarts.push_back(now);
+        self.log(inner, format!("{why} Restarting it."));
+        let weak = Arc::downgrade(self);
+        let generation = inner.generation;
+        let delay = self.restart_delay;
+        let _ = thread::Builder::new().name("kf-restart".into()).spawn(move || {
+            thread::sleep(delay);
+            let Some(c) = weak.upgrade() else { return };
+            let mut inner = c.lock();
+            // Skip if the user turned mappings off or something else started
+            // an engine in the meantime.
+            if !inner.enabled || inner.engine.is_some() || inner.generation != generation {
+                return;
+            }
+            match c.start(&mut inner, true) {
+                Ok(()) => {
+                    inner.last_error = None;
+                    c.log(&mut inner, "Engine restarted; mappings are on.".into());
+                }
+                Err(e) => c.schedule_restart(&mut inner, format!("The engine could not be restarted ({e}).")),
+            }
+            c.publish(&inner);
+        });
+    }
+
+    /// One health check. `slept` is true when the PC was asleep (or the
+    /// process was suspended) since the previous check.
+    pub(crate) fn health_tick(self: &Arc<Self>, slept: bool) {
+        let mut inner = self.lock();
+        if inner.engine.is_none() {
+            inner.awaiting_pong = false;
+            inner.missed_pings = 0;
+            return;
+        }
+        if slept {
+            // Time spent asleep is not a missed answer. Windows can drop
+            // keyboard hooks across sleep, so a fresh engine reinstalls it.
+            inner.awaiting_pong = false;
+            inner.missed_pings = 0;
+            if inner.enabled {
+                match self.start(&mut inner, true) {
+                    Ok(()) => self.log(&mut inner, "The PC woke up; the engine was restarted to keep mappings working.".into()),
+                    Err(e) => self.schedule_restart(&mut inner, format!("The engine could not restart after the PC woke up ({e}).")),
+                }
+                self.publish(&inner);
+            }
+            return;
+        }
+        if inner.awaiting_pong {
+            inner.missed_pings += 1;
+        }
+        if inner.missed_pings >= MISSED_PINGS_LIMIT {
+            // Hung. Windows already bypasses its hook, so the keyboard works,
+            // but mappings do not. Replace it.
             inner.generation += 1;
             drop(inner.engine.take());
-            inner.enabled = false;
             inner.detecting = false;
+            inner.awaiting_pong = false;
+            inner.missed_pings = 0;
             #[cfg(windows)]
             crate::win::release_stuck_modifiers();
-            let msg = "The engine stopped responding and was stopped. Mappings are off.".to_string();
-            inner.last_error = Some(msg.clone());
-            self.log(&mut inner, msg);
+            if inner.enabled {
+                self.schedule_restart(&mut inner, "The engine stopped responding.".into());
+            }
             self.publish(&inner);
-        } else if let Some(engine) = inner.engine.as_mut() {
+            return;
+        }
+        if let Some(engine) = inner.engine.as_mut() {
             let _ = engine.send(Command::Ping);
+            inner.awaiting_pong = true;
         }
     }
 
@@ -632,11 +761,22 @@ impl Controller {
     }
 }
 
+/// A check that ran much later than scheduled means the PC slept or the
+/// process was suspended. Both clocks are compared because the monotonic clock
+/// may or may not advance during sleep, depending on the platform.
+fn slept(monotonic_gap: Duration, wall_gap: Duration, interval: Duration) -> bool {
+    monotonic_gap.max(wall_gap) > interval * 3 + Duration::from_secs(2)
+}
+
 fn health_loop(controller: Weak<Controller>, interval: Duration) {
+    let (mut last, mut last_wall) = (Instant::now(), SystemTime::now());
     loop {
         thread::sleep(interval);
+        let (now, now_wall) = (Instant::now(), SystemTime::now());
+        let asleep = slept(now.duration_since(last), now_wall.duration_since(last_wall).unwrap_or_default(), interval);
+        (last, last_wall) = (now, now_wall);
         match controller.upgrade() {
-            Some(c) => c.health_check(),
+            Some(c) => c.health_tick(asleep),
             None => return,
         }
     }
@@ -673,6 +813,7 @@ script="$1"
 if grep -q KF_FAIL "$script"; then echo "Error: simulated load failure" >&2; exit 2; fi
 nopong=0; grep -q KF_NOPONG "$script" && nopong=1
 echo '{"event":"ready","ahk":"2.0.19","admin":false,"pid":1,"profile":"productivity"}'
+grep -q KF_CRASHLOOP "$script" && exit 7
 while read -r line; do
   case "$line" in
     ping) [ $nopong = 1 ] || echo '{"event":"pong"}' ;;
@@ -713,12 +854,19 @@ exit 2
     fn controller(name: &str, health: Duration) -> (Arc<Controller>, Arc<Recorder>) {
         let dir = std::env::temp_dir().join(format!("kf-ctl-{name}-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
+        open_controller(&dir, health)
+    }
+
+    /// Open a controller on an existing data folder, like a second app start.
+    fn open_controller(dir: &Path, health: Duration) -> (Arc<Controller>, Arc<Recorder>) {
+        let dir = dir.to_path_buf();
         let fake_exe = dir.join("AutoHotkey64.exe");
         std::fs::create_dir_all(&dir).unwrap();
         std::fs::write(&fake_exe, "").unwrap();
         let mut options = Options::new(&dir);
         options.bundled_ahk_dir = Some(dir.clone());
         options.health_interval = health;
+        options.restart_delay = Duration::from_millis(20);
         options.launcher = Some(Box::new(|_exe: &Path, script: &Path| Launch {
             program: "sh".into(),
             args: vec!["-c".into(), FAKE.into(), "sh".into(), script.into()],
@@ -852,40 +1000,120 @@ exit 2
         c.shutdown();
     }
 
-    #[test]
-    fn hung_engine_is_stopped() {
-        if std::env::var_os(locate::ENV_OVERRIDE).is_some() {
-            return;
+    fn wait_until(what: &str, mut cond: impl FnMut() -> bool) {
+        let deadline = Instant::now() + Duration::from_secs(10);
+        while !cond() {
+            assert!(Instant::now() < deadline, "timed out waiting for {what}");
+            thread::sleep(Duration::from_millis(10));
         }
-        let (c, _) = controller("hung", Duration::from_millis(100));
-        c.apply(with(vec![text("a", "F13", "KF_NOPONG")])).unwrap();
-        c.set_enabled(true).unwrap();
-        let deadline = Instant::now() + Duration::from_secs(5);
-        while c.status().engine_running {
-            assert!(Instant::now() < deadline, "hung engine not stopped");
-            thread::sleep(Duration::from_millis(20));
-        }
-        let status = c.status();
-        assert!(!status.enabled);
-        assert!(status.last_error.unwrap().contains("stopped responding"));
     }
 
     #[test]
-    fn unexpected_exit_turns_mappings_off() {
+    fn hung_engine_is_restarted_then_given_up() {
+        if std::env::var_os(locate::ENV_OVERRIDE).is_some() {
+            return;
+        }
+        // Every engine started from this config ignores pings.
+        let (c, sink) = controller("hung", Duration::from_millis(50));
+        c.apply(with(vec![text("a", "F13", "KF_NOPONG")])).unwrap();
+        c.set_enabled(true).unwrap();
+        wait_until("giving up", || !c.status().enabled);
+        let status = c.status();
+        assert!(status.last_error.unwrap().contains("gave up"));
+        let logs = c.logs().join("\n");
+        assert_eq!(logs.matches("stopped responding").count(), MAX_RESTARTS + 1, "{logs}");
+        assert!(sink.0.lock().unwrap().iter().any(|(e, _)| e == "status"));
+    }
+
+    #[test]
+    fn crashed_engine_restarts_and_mappings_stay_on() {
         if std::env::var_os(locate::ENV_OVERRIDE).is_some() {
             return;
         }
         let (c, _) = controller("crash", Duration::from_secs(60));
         c.set_enabled(true).unwrap();
+        let first = c.engine_pid().unwrap();
         c.lock().engine.as_mut().unwrap().send_raw("crash\n").unwrap();
-        let deadline = Instant::now() + Duration::from_secs(5);
-        while c.status().engine_running {
-            assert!(Instant::now() < deadline);
-            thread::sleep(Duration::from_millis(10));
-        }
+        wait_until("restart", || c.engine_pid().is_some_and(|p| p != first));
         let status = c.status();
-        assert!(!status.enabled);
-        assert!(status.last_error.unwrap().contains("exit code Some(7)"));
+        assert!(status.enabled && status.engine_running && status.last_error.is_none());
+        assert!(c.logs().join("\n").contains("exit code Some(7)"));
+        c.shutdown();
+    }
+
+    #[test]
+    fn crash_loop_gives_up() {
+        if std::env::var_os(locate::ENV_OVERRIDE).is_some() {
+            return;
+        }
+        let (c, _) = controller("crashloop", Duration::from_secs(60));
+        c.apply(with(vec![text("a", "F13", "KF_CRASHLOOP")])).unwrap();
+        let _ = c.set_enabled(true);
+        wait_until("giving up", || !c.status().enabled);
+        assert!(c.status().last_error.unwrap().contains("gave up"));
+        assert!(Store::new(c.data_dir()).load_state().mappings_on, "the user's choice is kept for the next start");
+    }
+
+    #[test]
+    fn wake_from_sleep_restarts_engine_without_turning_off() {
+        if std::env::var_os(locate::ENV_OVERRIDE).is_some() {
+            return;
+        }
+        let (c, _) = controller("wake", Duration::from_secs(60));
+        c.set_enabled(true).unwrap();
+        let before = c.engine_pid().unwrap();
+        // Simulate the first check after sleep: an outstanding ping must not
+        // count as a missed answer.
+        c.health_tick(false);
+        c.health_tick(true);
+        let after = c.engine_pid().unwrap();
+        assert_ne!(before, after, "engine reinstalled after wake");
+        assert!(c.status().enabled);
+        c.shutdown();
+    }
+
+    #[test]
+    fn sleep_detection() {
+        let i = Duration::from_secs(5);
+        assert!(!slept(Duration::from_secs(5), Duration::from_secs(5), i));
+        assert!(!slept(Duration::from_secs(9), Duration::from_secs(6), i), "a slow tick is not sleep");
+        assert!(slept(Duration::from_secs(5), Duration::from_secs(3600), i), "wall clock shows sleep");
+        assert!(slept(Duration::from_secs(600), Duration::from_secs(5), i));
+    }
+
+    #[test]
+    fn on_off_choice_survives_restart() {
+        if std::env::var_os(locate::ENV_OVERRIDE).is_some() {
+            return;
+        }
+        let (c, _) = controller("remember", Duration::from_secs(60));
+        let dir = c.data_dir().to_path_buf();
+        assert!(c.snapshot().first_run);
+        c.mark_first_run_done();
+        c.set_enabled(true).unwrap();
+        c.shutdown();
+        drop(c);
+
+        let (c, _) = open_controller(&dir, Duration::from_secs(60));
+        assert!(!c.snapshot().first_run);
+        c.start_on_launch();
+        assert!(c.status().enabled && c.status().engine_running, "mappings come back on");
+
+        // The emergency stop keeps them off, also after the next start.
+        c.emergency_disable();
+        c.shutdown();
+        drop(c);
+        let (c, _) = open_controller(&dir, Duration::from_secs(60));
+        c.start_on_launch();
+        assert!(!c.status().enabled);
+
+        // "Always on" overrides the remembered choice.
+        let mut config = c.snapshot().config;
+        config.settings.launch_mappings = LaunchMappings::On;
+        c.apply(config).unwrap();
+        c.start_on_launch();
+        assert!(c.status().enabled);
+        c.shutdown();
     }
 
     #[test]

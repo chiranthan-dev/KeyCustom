@@ -11,7 +11,17 @@ use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 use tauri::menu::{Menu, MenuItem, PredefinedMenuItem};
 use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent};
+use tauri::image::Image;
 use tauri::{AppHandle, Emitter, Manager, RunEvent, State, WindowEvent, Wry};
+
+/// Name of the per-user startup entry, and the flag it starts KeyForge with.
+const STARTUP_NAME: &str = "KeyForge";
+const AUTOSTART_FLAG: &str = "--autostart";
+
+fn tray_icon(on: bool) -> Image<'static> {
+    let bytes: &'static [u8] = if on { include_bytes!("../icons/tray-on.png") } else { include_bytes!("../icons/tray-off.png") };
+    Image::from_bytes(bytes).expect("tray icon is a valid PNG")
+}
 
 type Ctl<'a> = State<'a, Arc<Controller>>;
 
@@ -44,6 +54,7 @@ impl Sink for TauriSink {
                 if let Some(tray) = app.tray_by_id("main") {
                     let state = if enabled { "mappings on" } else { "mappings off" };
                     let _ = tray.set_tooltip(Some(format!("KeyForge: {state}")));
+                    let _ = tray.set_icon(Some(tray_icon(enabled)));
                 }
             });
         }
@@ -61,6 +72,41 @@ async fn blocking<T: Send + 'static>(ctl: &Ctl<'_>, f: impl FnOnce(&Arc<Controll
 #[tauri::command]
 async fn get_snapshot(ctl: Ctl<'_>) -> Result<Snapshot, String> {
     blocking(&ctl, |c| Ok(c.snapshot())).await
+}
+
+#[tauri::command]
+async fn finish_first_run(ctl: Ctl<'_>) -> Result<(), String> {
+    blocking(&ctl, |c| Ok(c.mark_first_run_done())).await
+}
+
+/// Whether KeyForge starts when the user signs in (and was not disabled in
+/// Task Manager's Startup tab).
+#[tauri::command]
+fn get_autostart() -> bool {
+    #[cfg(windows)]
+    return keyforge_engine::win::run_at_login(STARTUP_NAME).is_some();
+    #[cfg(not(windows))]
+    false
+}
+
+fn startup_command() -> Result<String, String> {
+    let exe = std::env::current_exe().map_err(|e| e.to_string())?;
+    Ok(format!("\"{}\" {AUTOSTART_FLAG}", exe.display()))
+}
+
+#[tauri::command]
+fn set_autostart(enabled: bool) -> Result<bool, String> {
+    #[cfg(windows)]
+    {
+        let command = if enabled { Some(startup_command()?) } else { None };
+        keyforge_engine::win::set_run_at_login(STARTUP_NAME, command.as_deref()).map_err(|e| format!("Could not change the startup setting: {e}"))?;
+        Ok(get_autostart())
+    }
+    #[cfg(not(windows))]
+    {
+        let _ = (enabled, startup_command);
+        Err("Starting with Windows is only available on Windows.".into())
+    }
 }
 
 #[tauri::command]
@@ -170,7 +216,7 @@ fn build_tray(app: &AppHandle, sink: &TauriSink) -> tauri::Result<()> {
     let exit = MenuItem::with_id(app, "exit", "Exit KeyForge", true, None::<&str>)?;
     let menu = Menu::with_items(app, &[&pause, &resume, &PredefinedMenuItem::separator(app)?, &open, &exit])?;
     TrayIconBuilder::with_id("main")
-        .icon(app.default_window_icon().cloned().expect("app icon"))
+        .icon(tray_icon(false))
         .tooltip("KeyForge: mappings off")
         .menu(&menu)
         .show_menu_on_left_click(false)
@@ -206,11 +252,21 @@ pub fn run() {
             controller.register_emergency_hotkey();
             build_tray(&handle, &sink)?;
             app.manage(Arc::clone(&controller));
-            if controller.snapshot().config.settings.enable_on_launch {
-                std::thread::spawn(move || {
-                    let _ = controller.set_enabled(true);
-                });
+
+            // Started at sign-in: stay in the tray. Otherwise show the window.
+            let autostarted = std::env::args().any(|a| a == AUTOSTART_FLAG);
+            if !autostarted {
+                show_main(&handle);
             }
+            // Keep the startup entry pointing at this executable, e.g. after
+            // KeyForge was reinstalled to another folder.
+            #[cfg(windows)]
+            if keyforge_engine::win::run_at_login(STARTUP_NAME).is_some() {
+                if let Ok(command) = startup_command() {
+                    let _ = keyforge_engine::win::set_run_at_login(STARTUP_NAME, Some(&command));
+                }
+            }
+            std::thread::spawn(move || controller.start_on_launch());
             Ok(())
         })
         .on_window_event(|window, event| {
@@ -241,6 +297,9 @@ pub fn run() {
             reset_config,
             get_logs,
             dismiss_notice,
+            finish_first_run,
+            get_autostart,
+            set_autostart,
         ])
         .build(tauri::generate_context!())
         .expect("failed to build KeyForge");

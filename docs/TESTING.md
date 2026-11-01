@@ -23,6 +23,9 @@ The Windows end-to-end suite checks:
 - a launched program runs;
 - detection;
 - the emergency shortcut leaves no stuck modifiers;
+- every template loads, and the block and date/time actions behave as expected;
+- a killed engine is restarted with mappings still working;
+- the Start-with-Windows registration is added and removed;
 - the engine exits when stdin closes or the supervisor is killed;
 - the full app flow through the controller: detect → apply → enable → key works → Test → disable → key restored → restart keeps the mapping and starts disabled.
 
@@ -98,4 +101,11 @@ Use a non-elevated app such as Notepad for typing checks. "Mapped key" means a k
     - importing a non-KeyForge JSON file is refused;
     - **Back up now** adds a backup, and **Restore** brings it back;
     - **Reset to defaults** asks for confirmation and makes a backup first.
-30. Restart KeyForge. All mappings are still there and mappings start **off**, unless *Turn mappings on when KeyForge starts* is enabled.
+30. Restart KeyForge. All mappings are still there, and mappings are on or off as you left them.
+
+### Always on, startup and templates
+31. Turn mappings on, put the PC to sleep for a few minutes and wake it. Within about 5 seconds the mapped keys work again; **Settings → Diagnostics** says the engine was restarted after waking.
+32. With mappings on, end `AutoHotkey64.exe` in Task Manager. It reappears within about a second, mappings stay on, and the keys keep working.
+33. In **Settings → Startup**, turn on *Start KeyForge when I sign in*, then sign out and in. KeyForge starts in the tray (no window), with mappings as you left them. Task Manager → Startup apps lists KeyForge; disabling it there shows the switch as off in KeyForge.
+34. The tray icon is coloured with a green dot while mappings are on, and grey when they are off.
+35. In **Templates**, use "Today's date" on F13 and "Disable the Windows key" on Left Win, then apply. F13 types today's date, and the Windows key and Win+E do nothing. Turn mappings off and the Windows key works again.

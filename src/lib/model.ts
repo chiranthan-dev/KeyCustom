@@ -24,8 +24,58 @@ export const ACTION_TYPES: { type: ActionType; label: string; hint: string }[] =
   { type: "macro", label: "Macro", hint: "Run a sequence of steps" },
   { type: "media", label: "Media", hint: "Play/pause, tracks, volume" },
   { type: "system", label: "Windows", hint: "Settings pages and utilities" },
+  { type: "dateTime", label: "Type date/time", hint: "Insert today's date or the current time" },
+  { type: "block", label: "Do nothing", hint: "Block the key, e.g. the Windows key while gaming" },
   { type: "script", label: "Script", hint: "Run a confirmed .ps1/.bat/.cmd file" },
 ];
+
+/** Common date/time formats (AutoHotkey FormatTime letters). */
+export const DATE_FORMATS: { format: string; label: string }[] = [
+  { format: "yyyy-MM-dd", label: "ISO date" },
+  { format: "dd/MM/yyyy", label: "Day/month/year" },
+  { format: "MM/dd/yyyy", label: "Month/day/year" },
+  { format: "dddd, d MMMM yyyy", label: "Long date" },
+  { format: "HH:mm", label: "Time (24 h)" },
+  { format: "h:mm tt", label: "Time (12 h)" },
+  { format: "yyyy-MM-dd HH:mm:ss", label: "Timestamp" },
+];
+
+const DAY_NAMES = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+const MONTH_NAMES = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+
+/** Preview a FormatTime format the way the engine renders it (English names). */
+export function formatDate(format: string, d: Date = new Date()): string {
+  const pad = (n: number, w = 2) => String(n).padStart(w, "0");
+  const h12 = d.getHours() % 12 || 12;
+  const tokens: Record<string, () => string> = {
+    dddd: () => DAY_NAMES[d.getDay()],
+    ddd: () => DAY_NAMES[d.getDay()].slice(0, 3),
+    dd: () => pad(d.getDate()),
+    d: () => String(d.getDate()),
+    MMMM: () => MONTH_NAMES[d.getMonth()],
+    MMM: () => MONTH_NAMES[d.getMonth()].slice(0, 3),
+    MM: () => pad(d.getMonth() + 1),
+    M: () => String(d.getMonth() + 1),
+    yyyy: () => String(d.getFullYear()),
+    yy: () => pad(d.getFullYear() % 100),
+    y: () => String(d.getFullYear() % 100),
+    HH: () => pad(d.getHours()),
+    H: () => String(d.getHours()),
+    hh: () => pad(h12),
+    h: () => String(h12),
+    mm: () => pad(d.getMinutes()),
+    m: () => String(d.getMinutes()),
+    ss: () => pad(d.getSeconds()),
+    s: () => String(d.getSeconds()),
+    tt: () => (d.getHours() < 12 ? "AM" : "PM"),
+    t: () => (d.getHours() < 12 ? "A" : "P"),
+  };
+  return format.replace(/dddd|ddd|dd|d|MMMM|MMM|MM|M|yyyy|yy|y|HH|H|hh|h|mm|m|ss|s|tt|t/g, (t) => tokens[t]());
+}
+
+export function isValidDateFormat(format: string): boolean {
+  return /^[dMyHhmst :/\-.,_]{1,64}$/.test(format) && /[a-zA-Z]/.test(format);
+}
 
 export const MEDIA_LABELS: Record<MediaAction, string> = {
   playPause: "Play / pause",
@@ -99,6 +149,10 @@ export function defaultAction(type: ActionType, profile?: Profile): Action {
       return { type, action: "taskManager" };
     case "script":
       return { type, path: "", sha256: "", confirmEachRun: true };
+    case "block":
+      return { type };
+    case "dateTime":
+      return { type, format: "yyyy-MM-dd" };
   }
 }
 
@@ -142,6 +196,10 @@ export function describeAction(action: Action, keys: KeyDef[] = [], profile?: Pr
       return SYSTEM_LABELS[action.action] ?? action.action;
     case "script":
       return action.path ? `Runs script ${basename(action.path)}` : "Runs a script";
+    case "block":
+      return "Does nothing (key blocked)";
+    case "dateTime":
+      return `Types ${formatDate(action.format)}`;
   }
 }
 
@@ -164,6 +222,12 @@ export function describeStep(step: Step, keys: KeyDef[] = []): string {
       return step.path ? `Open ${basename(step.path)}` : "Open an app";
     case "url":
       return `Open ${step.url}`;
+    case "media":
+      return MEDIA_LABELS[step.action];
+    case "system":
+      return SYSTEM_LABELS[step.action] ?? step.action;
+    case "dateTime":
+      return `Type ${formatDate(step.format)}`;
   }
 }
 

@@ -1,0 +1,980 @@
+{
+  "groups": [
+    {
+      "group": "Windows",
+      "blurb": "Windows, desktops and built-in tools"
+    },
+    {
+      "group": "Editing",
+      "blurb": "Everyday editing shortcuts on one key"
+    },
+    {
+      "group": "Browser",
+      "blurb": "Tabs and windows in any browser"
+    },
+    {
+      "group": "Text & dates",
+      "blurb": "Snippets, dates and symbols you type often"
+    },
+    {
+      "group": "Routines",
+      "blurb": "Multi-step macros you can adjust"
+    },
+    {
+      "group": "Media",
+      "blurb": "Music and volume"
+    },
+    {
+      "group": "Gaming",
+      "blurb": "Keys that get in the way"
+    }
+  ],
+  "templates": [
+    {
+      "id": "snap-left",
+      "group": "Windows",
+      "name": "Snap window left",
+      "description": "Win + ←",
+      "action": {
+        "type": "shortcut",
+        "keys": {
+          "key": "Left",
+          "win": true
+        }
+      }
+    },
+    {
+      "id": "snap-right",
+      "group": "Windows",
+      "name": "Snap window right",
+      "description": "Win + →",
+      "action": {
+        "type": "shortcut",
+        "keys": {
+          "key": "Right",
+          "win": true
+        }
+      }
+    },
+    {
+      "id": "maximize",
+      "group": "Windows",
+      "name": "Maximize window",
+      "description": "Win + ↑",
+      "action": {
+        "type": "shortcut",
+        "keys": {
+          "key": "Up",
+          "win": true
+        }
+      }
+    },
+    {
+      "id": "next-monitor",
+      "group": "Windows",
+      "name": "Move window to other monitor",
+      "description": "Win + Shift + →",
+      "action": {
+        "type": "shortcut",
+        "keys": {
+          "key": "Right",
+          "win": true,
+          "shift": true
+        }
+      }
+    },
+    {
+      "id": "desktop-next",
+      "group": "Windows",
+      "name": "Next virtual desktop",
+      "description": "Ctrl + Win + →",
+      "action": {
+        "type": "shortcut",
+        "keys": {
+          "key": "Right",
+          "ctrl": true,
+          "win": true
+        }
+      }
+    },
+    {
+      "id": "desktop-prev",
+      "group": "Windows",
+      "name": "Previous virtual desktop",
+      "description": "Ctrl + Win + ←",
+      "action": {
+        "type": "shortcut",
+        "keys": {
+          "key": "Left",
+          "ctrl": true,
+          "win": true
+        }
+      }
+    },
+    {
+      "id": "desktop-new",
+      "group": "Windows",
+      "name": "New virtual desktop",
+      "description": "Ctrl + Win + D",
+      "action": {
+        "type": "shortcut",
+        "keys": {
+          "key": "D",
+          "ctrl": true,
+          "win": true
+        }
+      }
+    },
+    {
+      "id": "task-view",
+      "group": "Windows",
+      "name": "Task View",
+      "description": "See all windows and desktops (Win + Tab)",
+      "action": {
+        "type": "shortcut",
+        "keys": {
+          "key": "Tab",
+          "win": true
+        }
+      }
+    },
+    {
+      "id": "show-desktop",
+      "group": "Windows",
+      "name": "Show desktop",
+      "description": "Minimise everything; press again to restore",
+      "action": {
+        "type": "system",
+        "action": "showDesktop"
+      }
+    },
+    {
+      "id": "snip",
+      "group": "Windows",
+      "name": "Screen snip",
+      "description": "Capture part of the screen",
+      "key": {
+        "key": "PrintScreen"
+      },
+      "action": {
+        "type": "system",
+        "action": "snippingTool"
+      }
+    },
+    {
+      "id": "clipboard",
+      "group": "Windows",
+      "name": "Clipboard history",
+      "description": "Win + V (Windows' own history; KeyForge never reads it)",
+      "action": {
+        "type": "shortcut",
+        "keys": {
+          "key": "V",
+          "win": true
+        }
+      }
+    },
+    {
+      "id": "emoji",
+      "group": "Windows",
+      "name": "Emoji panel",
+      "description": "Win + .",
+      "action": {
+        "type": "system",
+        "action": "emojiPanel"
+      }
+    },
+    {
+      "id": "voice",
+      "group": "Windows",
+      "name": "Voice typing",
+      "description": "Win + H",
+      "action": {
+        "type": "shortcut",
+        "keys": {
+          "key": "H",
+          "win": true
+        }
+      }
+    },
+    {
+      "id": "quick-settings",
+      "group": "Windows",
+      "name": "Quick settings",
+      "description": "Wi-Fi, volume, brightness (Win + A)",
+      "action": {
+        "type": "shortcut",
+        "keys": {
+          "key": "A",
+          "win": true
+        }
+      }
+    },
+    {
+      "id": "notifications",
+      "group": "Windows",
+      "name": "Notifications and calendar",
+      "description": "Win + N",
+      "action": {
+        "type": "shortcut",
+        "keys": {
+          "key": "N",
+          "win": true
+        }
+      }
+    },
+    {
+      "id": "project",
+      "group": "Windows",
+      "name": "Project to a screen",
+      "description": "Duplicate/extend displays (Win + P)",
+      "action": {
+        "type": "shortcut",
+        "keys": {
+          "key": "P",
+          "win": true
+        }
+      }
+    },
+    {
+      "id": "lock",
+      "group": "Windows",
+      "name": "Lock the PC",
+      "description": "Same as Win + L",
+      "key": {
+        "key": "Pause"
+      },
+      "action": {
+        "type": "system",
+        "action": "lockScreen"
+      }
+    },
+    {
+      "id": "explorer",
+      "group": "Windows",
+      "name": "File Explorer",
+      "description": "Open a new Explorer window",
+      "action": {
+        "type": "system",
+        "action": "fileExplorer"
+      }
+    },
+    {
+      "id": "taskmgr",
+      "group": "Windows",
+      "name": "Task Manager",
+      "description": "See what is running",
+      "action": {
+        "type": "system",
+        "action": "taskManager"
+      }
+    },
+    {
+      "id": "calc",
+      "group": "Windows",
+      "name": "Calculator",
+      "description": "Open Calculator",
+      "action": {
+        "type": "system",
+        "action": "calculator"
+      }
+    },
+    {
+      "id": "settings",
+      "group": "Windows",
+      "name": "Windows Settings",
+      "description": "Open Settings",
+      "action": {
+        "type": "system",
+        "action": "settingsHome"
+      }
+    },
+    {
+      "id": "undo",
+      "group": "Editing",
+      "name": "Undo",
+      "description": "Ctrl + Z",
+      "action": {
+        "type": "shortcut",
+        "keys": {
+          "key": "Z",
+          "ctrl": true
+        }
+      }
+    },
+    {
+      "id": "redo",
+      "group": "Editing",
+      "name": "Redo",
+      "description": "Ctrl + Y",
+      "action": {
+        "type": "shortcut",
+        "keys": {
+          "key": "Y",
+          "ctrl": true
+        }
+      }
+    },
+    {
+      "id": "copy",
+      "group": "Editing",
+      "name": "Copy",
+      "description": "Ctrl + C",
+      "action": {
+        "type": "shortcut",
+        "keys": {
+          "key": "C",
+          "ctrl": true
+        }
+      }
+    },
+    {
+      "id": "paste",
+      "group": "Editing",
+      "name": "Paste",
+      "description": "Ctrl + V",
+      "action": {
+        "type": "shortcut",
+        "keys": {
+          "key": "V",
+          "ctrl": true
+        }
+      }
+    },
+    {
+      "id": "paste-plain",
+      "group": "Editing",
+      "name": "Paste as plain text",
+      "description": "Ctrl + Shift + V (browsers, Word and most editors)",
+      "action": {
+        "type": "shortcut",
+        "keys": {
+          "key": "V",
+          "ctrl": true,
+          "shift": true
+        }
+      }
+    },
+    {
+      "id": "select-all",
+      "group": "Editing",
+      "name": "Select all",
+      "description": "Ctrl + A",
+      "action": {
+        "type": "shortcut",
+        "keys": {
+          "key": "A",
+          "ctrl": true
+        }
+      }
+    },
+    {
+      "id": "find",
+      "group": "Editing",
+      "name": "Find",
+      "description": "Ctrl + F",
+      "action": {
+        "type": "shortcut",
+        "keys": {
+          "key": "F",
+          "ctrl": true
+        }
+      }
+    },
+    {
+      "id": "save",
+      "group": "Editing",
+      "name": "Save",
+      "description": "Ctrl + S",
+      "action": {
+        "type": "shortcut",
+        "keys": {
+          "key": "S",
+          "ctrl": true
+        }
+      }
+    },
+    {
+      "id": "delete-word",
+      "group": "Editing",
+      "name": "Delete previous word",
+      "description": "Ctrl + Backspace",
+      "action": {
+        "type": "shortcut",
+        "keys": {
+          "key": "Backspace",
+          "ctrl": true
+        }
+      }
+    },
+    {
+      "id": "reopen-tab",
+      "group": "Browser",
+      "name": "Reopen closed tab",
+      "description": "Ctrl + Shift + T",
+      "action": {
+        "type": "shortcut",
+        "keys": {
+          "key": "T",
+          "ctrl": true,
+          "shift": true
+        }
+      }
+    },
+    {
+      "id": "new-tab",
+      "group": "Browser",
+      "name": "New tab",
+      "description": "Ctrl + T",
+      "action": {
+        "type": "shortcut",
+        "keys": {
+          "key": "T",
+          "ctrl": true
+        }
+      }
+    },
+    {
+      "id": "close-tab",
+      "group": "Browser",
+      "name": "Close tab",
+      "description": "Ctrl + W",
+      "action": {
+        "type": "shortcut",
+        "keys": {
+          "key": "W",
+          "ctrl": true
+        }
+      }
+    },
+    {
+      "id": "next-tab",
+      "group": "Browser",
+      "name": "Next tab",
+      "description": "Ctrl + Tab",
+      "action": {
+        "type": "shortcut",
+        "keys": {
+          "key": "Tab",
+          "ctrl": true
+        }
+      }
+    },
+    {
+      "id": "prev-tab",
+      "group": "Browser",
+      "name": "Previous tab",
+      "description": "Ctrl + Shift + Tab",
+      "action": {
+        "type": "shortcut",
+        "keys": {
+          "key": "Tab",
+          "ctrl": true,
+          "shift": true
+        }
+      }
+    },
+    {
+      "id": "private",
+      "group": "Browser",
+      "name": "New private window",
+      "description": "Ctrl + Shift + N (Chrome, Edge)",
+      "action": {
+        "type": "shortcut",
+        "keys": {
+          "key": "N",
+          "ctrl": true,
+          "shift": true
+        }
+      }
+    },
+    {
+      "id": "address-bar",
+      "group": "Browser",
+      "name": "Jump to address bar",
+      "description": "Ctrl + L",
+      "action": {
+        "type": "shortcut",
+        "keys": {
+          "key": "L",
+          "ctrl": true
+        }
+      }
+    },
+    {
+      "id": "open-site",
+      "group": "Browser",
+      "name": "Open a website",
+      "description": "Your most visited page on one key",
+      "action": {
+        "type": "url",
+        "url": "https://example.com"
+      },
+      "personalize": "Enter the address"
+    },
+    {
+      "id": "morning-sites",
+      "group": "Browser",
+      "name": "Open my daily sites",
+      "description": "Several websites at once",
+      "macro": {
+        "name": "Daily sites",
+        "steps": [
+          {
+            "type": "url",
+            "url": "https://example.com"
+          },
+          {
+            "type": "delay",
+            "ms": 300
+          },
+          {
+            "type": "url",
+            "url": "https://example.org"
+          }
+        ]
+      },
+      "personalize": "Replace the example addresses in Macro Builder afterwards"
+    },
+    {
+      "id": "date",
+      "group": "Text & dates",
+      "name": "Today's date",
+      "description": "Types e.g. 2026-11-01",
+      "action": {
+        "type": "dateTime",
+        "format": "yyyy-MM-dd"
+      }
+    },
+    {
+      "id": "date-long",
+      "group": "Text & dates",
+      "name": "Today's date, written out",
+      "description": "Types e.g. Sunday, 1 November 2026",
+      "action": {
+        "type": "dateTime",
+        "format": "dddd, d MMMM yyyy"
+      }
+    },
+    {
+      "id": "time",
+      "group": "Text & dates",
+      "name": "Current time",
+      "description": "Types e.g. 14:05",
+      "action": {
+        "type": "dateTime",
+        "format": "HH:mm"
+      }
+    },
+    {
+      "id": "timestamp",
+      "group": "Text & dates",
+      "name": "Timestamp",
+      "description": "Types e.g. 2026-11-01 14:05:09",
+      "action": {
+        "type": "dateTime",
+        "format": "yyyy-MM-dd HH:mm:ss"
+      }
+    },
+    {
+      "id": "signoff",
+      "group": "Text & dates",
+      "name": "Email sign-off",
+      "description": "Your closing and name",
+      "action": {
+        "type": "text",
+        "text": "Best regards,\nYour Name"
+      },
+      "personalize": "Write your sign-off"
+    },
+    {
+      "id": "email",
+      "group": "Text & dates",
+      "name": "My email address",
+      "description": "Never type it again",
+      "action": {
+        "type": "text",
+        "text": "you@example.com"
+      },
+      "personalize": "Enter your address"
+    },
+    {
+      "id": "phone",
+      "group": "Text & dates",
+      "name": "My phone number",
+      "description": "For forms and messages",
+      "action": {
+        "type": "text",
+        "text": "+1 555 0100"
+      },
+      "personalize": "Enter your number"
+    },
+    {
+      "id": "address",
+      "group": "Text & dates",
+      "name": "My address",
+      "description": "Multi-line postal address",
+      "action": {
+        "type": "text",
+        "text": "Street 1\nCity, Postcode"
+      },
+      "personalize": "Enter your address"
+    },
+    {
+      "id": "note-header",
+      "group": "Text & dates",
+      "name": "Dated note heading",
+      "description": "Types the date as a heading line",
+      "macro": {
+        "name": "Note heading",
+        "steps": [
+          {
+            "type": "text",
+            "text": "## "
+          },
+          {
+            "type": "dateTime",
+            "format": "dddd, d MMMM yyyy"
+          },
+          {
+            "type": "keys",
+            "keys": {
+              "key": "Enter"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "shrug",
+      "group": "Text & dates",
+      "name": "Shrug",
+      "description": "¯\\_(ツ)_/¯",
+      "action": {
+        "type": "text",
+        "text": "¯\\_(ツ)_/¯"
+      }
+    },
+    {
+      "id": "em-dash",
+      "group": "Text & dates",
+      "name": "Em dash",
+      "description": "—",
+      "action": {
+        "type": "text",
+        "text": "—"
+      }
+    },
+    {
+      "id": "arrow",
+      "group": "Text & dates",
+      "name": "Arrow",
+      "description": "→",
+      "action": {
+        "type": "text",
+        "text": "→"
+      }
+    },
+    {
+      "id": "degree",
+      "group": "Text & dates",
+      "name": "Degree sign",
+      "description": "°",
+      "action": {
+        "type": "text",
+        "text": "°"
+      }
+    },
+    {
+      "id": "step-away",
+      "group": "Routines",
+      "name": "Step away",
+      "description": "Pause music, mute and lock the PC",
+      "key": {
+        "key": "Pause"
+      },
+      "macro": {
+        "name": "Step away",
+        "steps": [
+          {
+            "type": "media",
+            "action": "playPause"
+          },
+          {
+            "type": "media",
+            "action": "mute"
+          },
+          {
+            "type": "delay",
+            "ms": 200
+          },
+          {
+            "type": "system",
+            "action": "lockScreen"
+          }
+        ]
+      }
+    },
+    {
+      "id": "focus",
+      "group": "Routines",
+      "name": "Focus mode",
+      "description": "Mute, minimise everything and open a note",
+      "macro": {
+        "name": "Focus mode",
+        "steps": [
+          {
+            "type": "media",
+            "action": "mute"
+          },
+          {
+            "type": "keys",
+            "keys": {
+              "key": "M",
+              "win": true
+            }
+          },
+          {
+            "type": "delay",
+            "ms": 300
+          },
+          {
+            "type": "system",
+            "action": "notepad"
+          }
+        ]
+      }
+    },
+    {
+      "id": "quick-note",
+      "group": "Routines",
+      "name": "Quick dated note",
+      "description": "Open Notepad and start a note with the date and time",
+      "macro": {
+        "name": "Quick note",
+        "steps": [
+          {
+            "type": "system",
+            "action": "notepad"
+          },
+          {
+            "type": "delay",
+            "ms": 800
+          },
+          {
+            "type": "dateTime",
+            "format": "yyyy-MM-dd HH:mm"
+          },
+          {
+            "type": "keys",
+            "keys": {
+              "key": "Enter"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "start-day",
+      "group": "Routines",
+      "name": "Start my day",
+      "description": "Open your apps and sites one after another",
+      "macro": {
+        "name": "Start my day",
+        "steps": [
+          {
+            "type": "system",
+            "action": "fileExplorer"
+          },
+          {
+            "type": "delay",
+            "ms": 500
+          },
+          {
+            "type": "url",
+            "url": "https://example.com"
+          },
+          {
+            "type": "delay",
+            "ms": 500
+          },
+          {
+            "type": "launch",
+            "path": "notepad.exe",
+            "args": ""
+          }
+        ]
+      },
+      "personalize": "Adjust the apps and sites in Macro Builder afterwards"
+    },
+    {
+      "id": "end-day",
+      "group": "Routines",
+      "name": "End of day",
+      "description": "Pause music, show the desktop and lock",
+      "macro": {
+        "name": "End of day",
+        "steps": [
+          {
+            "type": "media",
+            "action": "playPause"
+          },
+          {
+            "type": "system",
+            "action": "showDesktop"
+          },
+          {
+            "type": "delay",
+            "ms": 300
+          },
+          {
+            "type": "system",
+            "action": "lockScreen"
+          }
+        ]
+      }
+    },
+    {
+      "id": "play",
+      "group": "Media",
+      "name": "Play / pause",
+      "description": "Any player",
+      "key": {
+        "key": "Insert"
+      },
+      "action": {
+        "type": "media",
+        "action": "playPause"
+      }
+    },
+    {
+      "id": "next",
+      "group": "Media",
+      "name": "Next track",
+      "description": "Any player",
+      "action": {
+        "type": "media",
+        "action": "next"
+      }
+    },
+    {
+      "id": "prev",
+      "group": "Media",
+      "name": "Previous track",
+      "description": "Any player",
+      "action": {
+        "type": "media",
+        "action": "previous"
+      }
+    },
+    {
+      "id": "vol-up",
+      "group": "Media",
+      "name": "Volume up",
+      "description": "Holds to repeat",
+      "key": {
+        "key": "PgUp",
+        "ctrl": true,
+        "alt": true
+      },
+      "action": {
+        "type": "media",
+        "action": "volumeUp"
+      }
+    },
+    {
+      "id": "vol-down",
+      "group": "Media",
+      "name": "Volume down",
+      "description": "Holds to repeat",
+      "key": {
+        "key": "PgDn",
+        "ctrl": true,
+        "alt": true
+      },
+      "action": {
+        "type": "media",
+        "action": "volumeDown"
+      }
+    },
+    {
+      "id": "mute",
+      "group": "Media",
+      "name": "Mute",
+      "description": "Toggle sound",
+      "action": {
+        "type": "media",
+        "action": "mute"
+      }
+    },
+    {
+      "id": "pause-mute",
+      "group": "Media",
+      "name": "Pause and mute",
+      "description": "Silence everything at once",
+      "macro": {
+        "name": "Pause and mute",
+        "steps": [
+          {
+            "type": "media",
+            "action": "playPause"
+          },
+          {
+            "type": "media",
+            "action": "mute"
+          }
+        ]
+      }
+    },
+    {
+      "id": "no-win",
+      "group": "Gaming",
+      "name": "Disable the Windows key",
+      "description": "No more Start menu mid-game",
+      "key": {
+        "key": "LWin"
+      },
+      "action": {
+        "type": "block"
+      }
+    },
+    {
+      "id": "no-caps",
+      "group": "Gaming",
+      "name": "Disable Caps Lock",
+      "description": "Stop accidental caps",
+      "key": {
+        "key": "CapsLock"
+      },
+      "action": {
+        "type": "block"
+      }
+    },
+    {
+      "id": "caps-esc",
+      "group": "Gaming",
+      "name": "Caps Lock as Escape",
+      "description": "Escape where your little finger already is",
+      "key": {
+        "key": "CapsLock"
+      },
+      "action": {
+        "type": "remap",
+        "to": "Escape"
+      }
+    },
+    {
+      "id": "caps-ctrl",
+      "group": "Gaming",
+      "name": "Caps Lock as Ctrl",
+      "description": "A Ctrl key you can hold comfortably",
+      "key": {
+        "key": "CapsLock"
+      },
+      "action": {
+        "type": "remap",
+        "to": "LCtrl"
+      }
+    }
+  ]
+}

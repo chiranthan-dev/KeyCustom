@@ -6,10 +6,12 @@
 //! - `config.last-good.json`  configuration in effect before the last change
 //! - `config.corrupt-*.json`  damaged files that were set aside
 //! - `backups/config-*.json`  automatic and manual backups (newest 20 kept)
+//! - `state.json`             runtime state that is not configuration
+//!   (whether mappings were on, first-run flag)
 
 use crate::config::Config;
 use crate::validate::validate;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use std::fs;
 use std::io;
 use std::path::{Path, PathBuf};
@@ -70,6 +72,17 @@ pub struct BackupInfo {
     pub size: u64,
 }
 
+/// Runtime state kept between runs. Not part of the configuration, so it
+/// never goes through validation, undo or import.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", default)]
+pub struct AppState {
+    /// The user's last on/off choice for mappings.
+    pub mappings_on: bool,
+    /// The welcome prompt (start with Windows) has been answered.
+    pub first_run_done: bool,
+}
+
 pub struct Loaded {
     pub config: Config,
     /// Shown to the user when the configuration had to be recovered.
@@ -99,6 +112,20 @@ impl Store {
 
     pub fn backups_dir(&self) -> PathBuf {
         self.dir.join("backups")
+    }
+
+    pub fn state_path(&self) -> PathBuf {
+        self.dir.join("state.json")
+    }
+
+    /// Missing or unreadable state falls back to the defaults (mappings off,
+    /// first run).
+    pub fn load_state(&self) -> AppState {
+        fs::read_to_string(self.state_path()).ok().and_then(|t| serde_json::from_str(&t).ok()).unwrap_or_default()
+    }
+
+    pub fn save_state(&self, state: &AppState) -> io::Result<()> {
+        write_atomic(&self.state_path(), serde_json::to_string_pretty(state).expect("state serialises").as_bytes())
     }
 
     pub fn save(&self, config: &Config) -> io::Result<()> {
@@ -269,6 +296,17 @@ mod tests {
         assert!(list[0].created >= list[1].created);
         assert_eq!(store.read_backup(&list[0].name).unwrap(), c);
         assert!(store.read_backup("../config.json").is_err());
+    }
+
+    #[test]
+    fn app_state_round_trip_and_defaults() {
+        let store = temp_store("state");
+        assert_eq!(store.load_state(), AppState::default());
+        let state = AppState { mappings_on: true, first_run_done: true };
+        store.save_state(&state).unwrap();
+        assert_eq!(store.load_state(), state);
+        fs::write(store.state_path(), "garbage").unwrap();
+        assert_eq!(store.load_state(), AppState::default());
     }
 
     #[test]

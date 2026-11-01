@@ -6,7 +6,10 @@ use std::os::windows::io::AsRawHandle;
 use std::process::Child;
 use std::sync::{mpsc, OnceLock};
 use std::thread;
-use windows_sys::Win32::Foundation::{CloseHandle, HANDLE};
+use windows_sys::Win32::Foundation::{CloseHandle, ERROR_FILE_NOT_FOUND, ERROR_SUCCESS, HANDLE, WIN32_ERROR};
+use windows_sys::Win32::System::Registry::{
+    RegDeleteKeyValueW, RegGetValueW, RegSetKeyValueW, HKEY_CURRENT_USER, REG_SZ, RRF_RT_REG_BINARY, RRF_RT_REG_SZ,
+};
 use windows_sys::Win32::System::JobObjects::{
     AssignProcessToJobObject, CreateJobObjectW, JobObjectExtendedLimitInformation, SetInformationJobObject,
     JOBOBJECT_EXTENDED_LIMIT_INFORMATION, JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE,
@@ -138,4 +141,68 @@ pub fn listen_emergency_hotkey(on_press: impl Fn() + Send + 'static) -> io::Resu
         }
     })?;
     rx.recv().unwrap_or_else(|_| Err(io::Error::other("emergency hotkey thread ended")))
+}
+
+// --- Start with Windows ------------------------------------------------------
+// The per-user Run key needs no administrator rights. Task Manager's Startup
+// tab can disable an entry without removing it; that state lives under
+// StartupApproved, where an odd first byte means "disabled".
+
+const RUN_KEY: &str = r"Software\Microsoft\Windows\CurrentVersion\Run";
+const APPROVED_KEY: &str = r"Software\Microsoft\Windows\CurrentVersion\Explorer\StartupApproved\Run";
+
+fn wide(s: &str) -> Vec<u16> {
+    s.encode_utf16().chain(Some(0)).collect()
+}
+
+fn reg_result(err: WIN32_ERROR) -> io::Result<()> {
+    if err == ERROR_SUCCESS || err == ERROR_FILE_NOT_FOUND {
+        Ok(())
+    } else {
+        Err(io::Error::from_raw_os_error(err as i32))
+    }
+}
+
+/// Register (`Some(command)`) or remove (`None`) a program that starts when
+/// the current user signs in. Registering also clears a Task Manager
+/// "disabled" flag.
+pub fn set_run_at_login(name: &str, command: Option<&str>) -> io::Result<()> {
+    let (run, approved, value) = (wide(RUN_KEY), wide(APPROVED_KEY), wide(name));
+    unsafe {
+        if let Some(command) = command {
+            let data = wide(command);
+            let err = RegSetKeyValueW(HKEY_CURRENT_USER, run.as_ptr(), value.as_ptr(), REG_SZ, data.as_ptr() as *const c_void, (data.len() * 2) as u32);
+            if err != ERROR_SUCCESS {
+                return Err(io::Error::from_raw_os_error(err as i32));
+            }
+        } else {
+            reg_result(RegDeleteKeyValueW(HKEY_CURRENT_USER, run.as_ptr(), value.as_ptr()))?;
+        }
+        reg_result(RegDeleteKeyValueW(HKEY_CURRENT_USER, approved.as_ptr(), value.as_ptr()))
+    }
+}
+
+/// The registered start-up command for `name`, or `None` if it is not
+/// registered or was disabled in Task Manager.
+pub fn run_at_login(name: &str) -> Option<String> {
+    let (run, approved, value) = (wide(RUN_KEY), wide(APPROVED_KEY), wide(name));
+    unsafe {
+        let mut len = 0u32;
+        let no_type = std::ptr::null_mut();
+        if RegGetValueW(HKEY_CURRENT_USER, run.as_ptr(), value.as_ptr(), RRF_RT_REG_SZ, no_type, std::ptr::null_mut(), &mut len) != ERROR_SUCCESS {
+            return None;
+        }
+        let mut buf = vec![0u16; (len as usize).div_ceil(2)];
+        if RegGetValueW(HKEY_CURRENT_USER, run.as_ptr(), value.as_ptr(), RRF_RT_REG_SZ, no_type, buf.as_mut_ptr() as *mut c_void, &mut len) != ERROR_SUCCESS {
+            return None;
+        }
+        let command = String::from_utf16_lossy(&buf).trim_end_matches('\0').to_string();
+        let mut flags = [0u8; 32];
+        let mut flags_len = flags.len() as u32;
+        let found = RegGetValueW(HKEY_CURRENT_USER, approved.as_ptr(), value.as_ptr(), RRF_RT_REG_BINARY, no_type, flags.as_mut_ptr() as *mut c_void, &mut flags_len);
+        if found == ERROR_SUCCESS && flags_len > 0 && flags[0] & 1 == 1 {
+            return None;
+        }
+        Some(command)
+    }
 }

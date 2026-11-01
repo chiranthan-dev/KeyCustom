@@ -103,6 +103,18 @@ pub fn script_kind(path: &str) -> Option<&'static str> {
     SCRIPT_EXTENSIONS.into_iter().find(|e| *e == ext)
 }
 
+/// Date/time formats use AutoHotkey FormatTime letters (d M y H h m s t) and
+/// a few separators, which keeps them safe to embed and easy to preview.
+pub fn valid_time_format(format: &str) -> bool {
+    (1..=64).contains(&format.len()) && format.chars().all(|c| "dMyHhmst :/-.,_".contains(c)) && format.chars().any(|c| c.is_ascii_alphabetic())
+}
+
+fn check_time_format(format: &str) -> Result<(), String> {
+    valid_time_format(format)
+        .then_some(())
+        .ok_or_else(|| "Date/time format may only use d, M, y, H, h, m, s, t, spaces and : / - . , _".into())
+}
+
 fn check_text(text: &str) -> Result<(), String> {
     if text.is_empty() {
         Err("Text to type is empty.".into())
@@ -146,7 +158,8 @@ fn check_action(action: &Action, profile: &Profile) -> Result<(), String> {
             .any(|m| &m.id == macro_id)
             .then_some(())
             .ok_or_else(|| "The selected macro does not exist in this profile.".into()),
-        Action::Media { .. } | Action::System { .. } => Ok(()),
+        Action::Media { .. } | Action::System { .. } | Action::Block => Ok(()),
+        Action::DateTime { format } => check_time_format(format),
         Action::Script { path, sha256, .. } => {
             if script_kind(path).is_none() {
                 Err("Scripts must be .ps1, .bat or .cmd files.".into())
@@ -192,6 +205,8 @@ fn check_macro(m: &crate::config::Macro) -> Result<(), String> {
                     return Err(format!("Step {n}: enter a full http:// or https:// address."));
                 }
             }
+            Step::Media { .. } | Step::System { .. } => {}
+            Step::DateTime { format } => check_time_format(format).map_err(|e| format!("Step {n}: {e}"))?,
         }
     }
     if total > MAX_MACRO_MS {
@@ -525,6 +540,7 @@ pub(crate) mod tests {
             Action::Script { path: "C:\\run.exe".into(), sha256: "a".repeat(64), confirm_each_run: true },
             Action::Script { path: "C:\\run.ps1".into(), sha256: String::new(), confirm_each_run: true },
             Action::Remap { to: "Nope".into() },
+            Action::DateTime { format: "yyyy\"; Run".into() },
         ];
         for action in bad {
             let c = config_with(vec![mapping("a", "F13", action.clone())]);
@@ -536,6 +552,8 @@ pub(crate) mod tests {
             Action::Text { text: "Hello \"world\" ; `n".into() },
             Action::Media { action: MediaAction::Mute },
             Action::Script { path: "C:\\run.ps1".into(), sha256: "a".repeat(64), confirm_each_run: false },
+            Action::Block,
+            Action::DateTime { format: "dddd, d MMMM yyyy HH:mm".into() },
         ];
         for action in good {
             let c = config_with(vec![mapping("a", "F13", action.clone())]);

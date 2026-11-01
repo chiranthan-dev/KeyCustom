@@ -4,7 +4,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useReducer,
 import { api, errorText, onEvent } from "./lib/api";
 import type { ApplyOutcome, Config, DetectedKey, KeyDef, Report, Status } from "./lib/types";
 
-export type Page = "dashboard" | "studio" | "macros" | "profiles" | "apps" | "settings";
+export type Page = "dashboard" | "studio" | "templates" | "macros" | "profiles" | "apps" | "settings";
 
 interface Fired {
   profile: string;
@@ -16,6 +16,7 @@ interface State {
   keys: KeyDef[];
   saved: Config | null;
   draft: Config | null;
+  firstRun: boolean;
   past: Config[];
   future: Config[];
   status: Status | null;
@@ -32,7 +33,8 @@ interface State {
 }
 
 type Msg =
-  | { t: "init"; config: Config; status: Status; keys: KeyDef[] }
+  | { t: "init"; config: Config; status: Status; keys: KeyDef[]; firstRun: boolean }
+  | { t: "first-run-done" }
   | { t: "edit"; config: Config }
   | { t: "undo" }
   | { t: "redo" }
@@ -51,7 +53,9 @@ const HISTORY = 100;
 function reduce(s: State, m: Msg): State {
   switch (m.t) {
     case "init":
-      return { ...s, keys: m.keys, saved: m.config, draft: m.config, status: m.status, profileId: m.config.activeProfile };
+      return { ...s, keys: m.keys, saved: m.config, draft: m.config, status: m.status, profileId: m.config.activeProfile, firstRun: m.firstRun };
+    case "first-run-done":
+      return { ...s, firstRun: false };
     case "edit":
       if (!s.draft) return s;
       return { ...s, past: [...s.past.slice(-HISTORY + 1), s.draft], future: [], draft: m.config, report: null };
@@ -103,6 +107,7 @@ const initial: State = {
   keys: [],
   saved: null,
   draft: null,
+  firstRun: false,
   past: [],
   future: [],
   status: null,
@@ -124,7 +129,7 @@ function useStoreValue() {
 
   useEffect(() => {
     Promise.all([api.snapshot(), api.keys()]).then(
-      ([snap, keys]) => dispatch({ t: "init", config: snap.config, status: snap.status, keys }),
+      ([snap, keys]) => dispatch({ t: "init", config: snap.config, status: snap.status, keys, firstRun: snap.firstRun }),
       (e) => dispatch({ t: "toast", toast: { tone: "error", text: errorText(e) } }),
     );
     const subs = [

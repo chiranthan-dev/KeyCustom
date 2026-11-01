@@ -1,7 +1,7 @@
 //! Generates the single AutoHotkey script the engine runs: the runtime,
 //! then the configuration, hotkeys and one function per action.
 
-use crate::config::{Action, Chord, Step, SystemTarget};
+use crate::config::{Action, Chord, MediaAction, Step, SystemAction, SystemTarget};
 use crate::keys;
 use crate::validate::{script_kind, Plan};
 use std::collections::BTreeSet;
@@ -50,6 +50,24 @@ fn chord_send(chord: &Chord) -> String {
     format!("{}{{{}}}", chord.mods.ahk_prefix(), key.send)
 }
 
+fn media_line(action: MediaAction) -> String {
+    format!("Send {}", quote(&format!("{{{}}}", action.key())))
+}
+
+fn system_line(action: SystemAction) -> String {
+    match action.target() {
+        SystemTarget::Open(t) => format!("KF_Open({})", quote(t)),
+        SystemTarget::Send(s) => format!("Send {}", quote(s)),
+        SystemTarget::Lock => "DllCall(\"LockWorkStation\")".to_string(),
+    }
+}
+
+/// Types the current date/time. Formats are validated to FormatTime letters
+/// and separators.
+fn date_time_line(format: &str) -> String {
+    format!("SendText FormatTime(, {})", quote(format))
+}
+
 struct Gen<'a> {
     opts: &'a GenOptions<'a>,
     functions: String,
@@ -82,12 +100,10 @@ impl Gen<'_> {
                 let name = macros.iter().find(|(id, _)| id == macro_id).map(|(_, f)| f.as_str()).expect("validated macro");
                 format!("{name}()")
             }
-            Action::Media { action } => format!("Send {}", quote(&format!("{{{}}}", action.key()))),
-            Action::System { action } => match action.target() {
-                SystemTarget::Open(t) => format!("KF_Open({})", quote(t)),
-                SystemTarget::Send(s) => format!("Send {}", quote(s)),
-                SystemTarget::Lock => "DllCall(\"LockWorkStation\")".to_string(),
-            },
+            Action::Media { action } => media_line(*action),
+            Action::System { action } => system_line(*action),
+            Action::Block => "return".to_string(),
+            Action::DateTime { format } => date_time_line(format),
             Action::Script { path, sha256, confirm_each_run } => {
                 let copy = format!("{}\\{}", self.opts.scripts_dir.trim_end_matches('\\'), script_copy_name(sha256, path));
                 let kind = script_kind(path).expect("validated script");
@@ -145,6 +161,9 @@ pub fn generate(plan: &Plan<'_>, opts: &GenOptions<'_>) -> String {
                     Step::Delay { ms } => format!("Sleep {ms}"),
                     Step::Launch { path, args } => format!("KF_Launch({}, {})", quote(path), quote(args)),
                     Step::Url { url } => format!("KF_Open({})", quote(url)),
+                    Step::Media { action } => media_line(*action),
+                    Step::System { action } => system_line(*action),
+                    Step::DateTime { format } => date_time_line(format),
                 };
                 let _ = writeln!(gen.functions, "    {line}");
             }
@@ -263,6 +282,8 @@ mod tests {
             mapping("lk", "F20", Action::System { action: SystemAction::LockScreen }),
             mapping("sd", "F21", Action::System { action: SystemAction::ShowDesktop }),
             mapping("sp", "F22", Action::Script { path: "D:\\tools\\go.ps1".into(), sha256: "AB".repeat(32), confirm_each_run: true }),
+            mapping("bl", "LWin", Action::Block),
+            mapping("dt", "F23", Action::DateTime { format: "yyyy-MM-dd HH:mm".into() }),
         ];
         maps[0].hold = Some(Action::Media { action: MediaAction::Mute });
         maps[0].double_tap = Some(Action::Url { url: "https://a.example".into() });
@@ -277,6 +298,9 @@ mod tests {
                 Step::Text { text: "x".into() },
                 Step::Launch { path: "notepad.exe".into(), args: String::new() },
                 Step::Url { url: "https://b.example".into() },
+                Step::Media { action: MediaAction::Mute },
+                Step::System { action: SystemAction::LockScreen },
+                Step::DateTime { format: "HH:mm".into() },
             ],
         });
         let out = generated(&c);
@@ -291,7 +315,10 @@ mod tests {
             "DllCall(\"LockWorkStation\")",
             "Send \"#d\"",
             "KF_Script(\"C:\\Data\\scripts\\abababababababababababababababababababababababababababababababab.ps1\", \"ps1\", 1, \"D:\\tools\\go.ps1\")",
-            "    Send \"^{c}\"\n    Sleep 120\n    SendText \"x\"\n    KF_Launch(\"notepad.exe\", \"\")\n    KF_Open(\"https://b.example\")",
+            "    Send \"^{c}\"\n    Sleep 120\n    SendText \"x\"\n    KF_Launch(\"notepad.exe\", \"\")\n    KF_Open(\"https://b.example\")\n    Send \"{Volume_Mute}\"\n    DllCall(\"LockWorkStation\")\n    SendText FormatTime(, \"HH:mm\")\n}",
+            "LWin::KF_Run(\"productivity/bl\", \"LWin\", 200, 0, KF_A14, 0, 0)",
+            "KF_A14() {\n    return\n}",
+            "SendText FormatTime(, \"yyyy-MM-dd HH:mm\")",
         ] {
             assert!(out.contains(needle), "missing {needle} in:\n{out}");
         }

@@ -1,6 +1,6 @@
 import { ask, open, save } from "@tauri-apps/plugin-dialog";
 import { useEffect, useState } from "react";
-import { Alert, Badge, Button, Card, Checkbox, Field, Input, Kbd, PageHeader } from "../components/ui";
+import { Alert, Badge, Button, Card, Checkbox, Field, Input, Kbd, PageHeader, Select, Toggle } from "../components/ui";
 import { api } from "../lib/api";
 import type { BackupInfo } from "../lib/types";
 import { useStore } from "../store";
@@ -32,10 +32,20 @@ export function Settings() {
               {(id) => <Input id={id} type="number" min={100} max={1000} step={10} value={s.doubleTapMs} onChange={(e) => setSetting("doubleTapMs", Number(e.target.value))} className="w-32" />}
             </Field>
             <Checkbox checked={s.closeToTray} onChange={(v) => setSetting("closeToTray", v)} label="Closing the window keeps KeyForge running in the tray" />
-            <Checkbox checked={s.enableOnLaunch} onChange={(v) => setSetting("enableOnLaunch", v)} label="Turn mappings on when KeyForge starts (off by default)" />
+            <Field label="When KeyForge starts, mappings are" hint="The emergency shortcut always turns them off until you turn them on again.">
+              {(id) => (
+                <Select id={id} value={s.launchMappings} onChange={(e) => setSetting("launchMappings", e.target.value as typeof s.launchMappings)}>
+                  <option value="restore">As I left them (recommended)</option>
+                  <option value="on">Always on</option>
+                  <option value="off">Always off</option>
+                </Select>
+              )}
+            </Field>
             <p className="text-xs text-zinc-500">Settings take effect when you apply changes.</p>
           </div>
         </Card>
+
+        <StartupCard />
 
         <Card title="Safety">
           <div className="grid gap-3 text-sm text-zinc-300">
@@ -169,5 +179,35 @@ export function Settings() {
         </Card>
       </div>
     </>
+  );
+}
+
+function StartupCard() {
+  const { run } = useStore();
+  const [on, setOn] = useState<boolean | null>(null);
+  useEffect(() => {
+    api.getAutostart().then(setOn, () => setOn(false));
+  }, []);
+  return (
+    <Card title="Startup">
+      <div className="flex items-start gap-3">
+        <Toggle
+          label="Start KeyForge when I sign in"
+          checked={!!on}
+          disabled={on === null}
+          onChange={async (v) => {
+            const result = await run(() => api.setAutostart(v));
+            if (result !== undefined) setOn(result);
+          }}
+        />
+        <div className="text-sm">
+          <p className="text-zinc-200">Start KeyForge when I sign in to Windows</p>
+          <p className="mt-1 text-zinc-400">
+            It starts quietly in the tray, with mappings on or off as set under Behaviour. No administrator rights are needed; you can also turn it off in Task
+            Manager's Startup apps.
+          </p>
+        </div>
+      </div>
+    </Card>
   );
 }

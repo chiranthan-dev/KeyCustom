@@ -1,10 +1,11 @@
-import { ChangesBar, Sidebar, StatusBanners, Toast } from "./components/Shell";
+import { ChangesBar, Sidebar, StatusBanners, Toast, Welcome } from "./components/Shell";
 import { AppRules } from "./pages/AppRules";
 import { Dashboard } from "./pages/Dashboard";
 import { Macros } from "./pages/Macros";
 import { Profiles } from "./pages/Profiles";
 import { Settings } from "./pages/Settings";
 import { Studio } from "./pages/Studio";
+import { Templates } from "./pages/Templates";
 import { StoreProvider, useStore } from "./store";
 
 function Main() {
@@ -12,7 +13,7 @@ function Main() {
   if (!state.draft || !state.status) {
     return <div className="grid h-screen place-items-center text-sm text-zinc-500">{state.toast?.text ?? "Loading…"}</div>;
   }
-  const Page = { dashboard: Dashboard, studio: Studio, macros: Macros, profiles: Profiles, apps: AppRules, settings: Settings }[state.page];
+  const Page = { dashboard: Dashboard, studio: Studio, templates: Templates, macros: Macros, profiles: Profiles, apps: AppRules, settings: Settings }[state.page];
   return (
     <div className="flex h-screen">
       <Sidebar />
@@ -26,6 +27,7 @@ function Main() {
         <ChangesBar />
       </div>
       <Toast />
+      <Welcome />
     </div>
   );
 }
