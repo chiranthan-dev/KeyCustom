@@ -637,6 +637,9 @@ impl Controller {
                     self.sink.emit("profile", json!(id));
                     self.publish(&inner);
                 }
+                EngineEvent::Protocol(Event::Overlay { show, app, profile }) => {
+                    self.sink.emit("overlay", json!({ "show": show, "app": app, "profile": profile }));
+                }
                 EngineEvent::Protocol(Event::Pong) => {
                     inner.awaiting_pong = false;
                     inner.missed_pings = 0;

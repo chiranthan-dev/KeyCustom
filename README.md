@@ -32,6 +32,8 @@ KeyForge is a small Tauri app (Rust and React, using Windows' built-in WebView2)
   - disabling the Windows key or Caps Lock.
 
   Pick one, choose a key, done.
+- **Cheat sheet:** hold the Menu key (or a key you choose) to see the mappings for the app in front, in a small panel in the corner. A quick tap still works as the normal key.
+- **Keyboard layouts:** full-size (default), laptop, and the Skyloong GK61 60%. On the GK61, the number row shows its Fn-layer F1–F12, and the Fn-layer keys are listed under the keyboard.
 - **Macro Builder:** add, reorder, duplicate, edit and delete steps without code. Steps can be keys, text, date/time, waits, apps, websites, media and Windows actions.
 - **Profiles:** Productivity, Coding, Study and Gaming to start with; add your own. Switch with a shortcut, from the dashboard or tray, or automatically while a chosen app is in front.
 - **Application rules:** app-specific mappings that override global ones, or all mappings off in an app (e.g. games).

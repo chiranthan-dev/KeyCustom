@@ -5,7 +5,7 @@ import type { Config } from "./types";
 const base = (): Config => ({
   version: 1,
   activeProfile: "p",
-  settings: { tapHoldMs: 200, doubleTapMs: 250, closeToTray: true, launchMappings: "restore" },
+  settings: { tapHoldMs: 200, doubleTapMs: 250, closeToTray: true, launchMappings: "restore", cheatSheetKey: "AppsKey" },
   profiles: [{ id: "p", name: "Work", autoApps: [], mappings: [], macros: [], appRules: [] }],
 });
 
@@ -67,5 +67,52 @@ describe("templates", () => {
       expect(groups.has(t.group), t.group).toBe(true);
       expect(!!t.action !== !!t.macro, t.id).toBe(true);
     }
+  });
+});
+
+describe("cheat sheet", () => {
+  it("lists app overrides first and hides what they override", async () => {
+    const { cheatSheetRows } = await import("./model");
+    const c = base();
+    c.profiles[0].mappings = [
+      { id: "g", enabled: true, trigger: { key: "F13" }, action: { type: "media", action: "mute" } },
+      { id: "a", enabled: true, trigger: { key: "F13" }, action: { type: "block" }, app: "notepad.exe" },
+      { id: "h", enabled: true, trigger: { key: "F14" }, action: { type: "media", action: "next" } },
+      { id: "off", enabled: false, trigger: { key: "F15" }, action: { type: "media", action: "next" } },
+    ];
+    const inNotepad = cheatSheetRows(c, "p", "Notepad.exe");
+    expect(inNotepad.rows.map((r) => [r.trigger.key, r.appOnly])).toEqual([["F13", true], ["F14", false]]);
+    const elsewhere = cheatSheetRows(c, "p", "other.exe");
+    expect(elsewhere.rows.map((r) => r.action)).toEqual(["Mute", "Next track"]);
+    c.profiles[0].appRules = [{ id: "r", process: "game.exe", mode: "disable", enabled: true }];
+    const inGame = cheatSheetRows(c, "p", "game.exe");
+    expect(inGame.globalOff).toBe(true);
+    expect(inGame.rows).toEqual([]);
+  });
+});
+
+describe("layouts", () => {
+  it("only use known key ids and do not overlap", async () => {
+    const { LAYOUTS } = await import("./layout");
+    // The Rust key table is the source of truth for key ids.
+    const { default: keysRs } = await import("../../crates/core/src/keys.rs?raw");
+    const table = [...keysRs.matchAll(/^\s*k\("([^"]+)"/gm)].map((m) => m[1]);
+    expect(table.length).toBeGreaterThan(100);
+    const known = new Set([...table, "Fn"].map((s) => s.toLowerCase()));
+    for (const layout of Object.values(LAYOUTS)) {
+      for (const k of layout.keys) {
+        expect(known.has(k.id.toLowerCase()), `${layout.id}: ${k.id}`).toBe(true);
+        expect(k.x + k.w, `${layout.id}: ${k.id} fits`).toBeLessThanOrEqual(layout.width + 1e-9);
+        expect(k.y + k.h, `${layout.id}: ${k.id} fits`).toBeLessThanOrEqual(layout.height + 1e-9);
+      }
+      for (const a of layout.keys)
+        for (const b of layout.keys)
+          if (a !== b) {
+            const overlap = a.x < b.x + b.w - 1e-9 && b.x < a.x + a.w - 1e-9 && a.y < b.y + b.h - 1e-9 && b.y < a.y + a.h - 1e-9;
+            expect(overlap, `${layout.id}: ${a.id} overlaps ${b.id}`).toBe(false);
+          }
+      for (const g of layout.extras) for (const id of g.ids) expect(known.has(id.toLowerCase()), `${layout.id} extra ${id}`).toBe(true);
+    }
+    expect(LAYOUTS.gk61.keys.length).toBe(61);
   });
 });

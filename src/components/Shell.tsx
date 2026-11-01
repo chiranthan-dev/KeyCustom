@@ -6,14 +6,14 @@ import type { Preview } from "../lib/types";
 import { useStore, type Page } from "../store";
 import { Alert, Button, Dialog, Toggle } from "./ui";
 
-const NAV: { page: Page; label: string; icon: string }[] = [
-  { page: "dashboard", label: "Dashboard", icon: "◧" },
-  { page: "studio", label: "Keyboard Studio", icon: "⌨" },
-  { page: "templates", label: "Templates", icon: "✦" },
-  { page: "macros", label: "Macro Builder", icon: "≡" },
-  { page: "profiles", label: "Profiles", icon: "◎" },
-  { page: "apps", label: "Application Rules", icon: "▣" },
-  { page: "settings", label: "Settings", icon: "⚙" },
+const NAV: { page: Page; label: string }[] = [
+  { page: "dashboard", label: "dashboard" },
+  { page: "studio", label: "studio" },
+  { page: "templates", label: "templates" },
+  { page: "macros", label: "macros" },
+  { page: "profiles", label: "profiles" },
+  { page: "apps", label: "app rules" },
+  { page: "settings", label: "settings" },
 ];
 
 export function Sidebar() {
@@ -21,34 +21,33 @@ export function Sidebar() {
   const status = state.status;
   const active = state.saved?.profiles.find((p) => p.id === status?.activeProfile);
   return (
-    <nav aria-label="Main" className="flex w-56 shrink-0 flex-col gap-1 border-r border-zinc-800 bg-zinc-950 p-3">
-      <div className="mb-4 flex items-center gap-2 px-2 pt-1">
-        <span aria-hidden className="grid h-8 w-8 place-items-center rounded-lg bg-sky-500 font-bold text-zinc-950">K</span>
-        <span className="font-semibold">KeyForge</span>
+    <nav aria-label="Main" className="flex w-52 shrink-0 flex-col gap-0.5 border-r border-neutral-800 bg-neutral-950 px-3.5 py-5 font-mono text-xs">
+      <div className="mb-5 flex items-center gap-2.5 px-1.5">
+        <span aria-hidden className="grid h-7 w-7 place-items-center border-[1.5px] border-lime-400 font-semibold text-lime-400">K</span>
+        <span className="font-semibold tracking-[0.08em]">KEYFORGE</span>
       </div>
-      {NAV.map((n) => (
-        <button
-          key={n.page}
-          type="button"
-          aria-current={state.page === n.page ? "page" : undefined}
-          onClick={() => dispatch({ t: "nav", page: n.page })}
-          className={`flex items-center gap-3 rounded-lg px-3 py-2 text-left text-sm transition-colors ${
-            state.page === n.page ? "bg-zinc-800 text-zinc-50" : "text-zinc-400 hover:bg-zinc-900 hover:text-zinc-100"
-          }`}
-        >
-          <span aria-hidden className="w-4 text-center">
-            {n.icon}
-          </span>
-          {n.label}
-        </button>
-      ))}
-      <div className="mt-auto grid gap-3 rounded-lg border border-zinc-800 p-3 text-xs">
+      {NAV.map((n) => {
+        const current = state.page === n.page;
+        return (
+          <button
+            key={n.page}
+            type="button"
+            aria-current={current ? "page" : undefined}
+            onClick={() => dispatch({ t: "nav", page: n.page })}
+            className={`px-2 py-2 text-left tracking-wide transition-colors ${current ? "text-lime-400" : "text-neutral-400 hover:text-neutral-100"}`}
+          >
+            <span aria-hidden className="inline-block w-4">{current ? ">" : ""}</span>
+            {n.label}
+          </button>
+        );
+      })}
+      <div className="mt-auto grid gap-2.5 border-t border-neutral-800 px-1.5 pt-3">
         <div className="flex items-center justify-between gap-2">
-          <span className={status?.enabled ? "font-medium text-emerald-400" : "text-zinc-400"}>{status?.enabled ? "Mappings on" : "Mappings off"}</span>
+          <span className={status?.enabled ? "text-lime-400" : "text-neutral-400"}>{status?.enabled ? "[on] mappings" : "[off] mappings"}</span>
           <Toggle label="Mappings on or off" checked={!!status?.enabled} disabled={state.busy || !status?.ahkPath} onChange={setEnabled} />
         </div>
-        <div className="text-zinc-500">Profile: <span className="text-zinc-300">{active?.name ?? "—"}</span></div>
-        <div className="text-zinc-500">Emergency off: <span className="text-zinc-300">Ctrl+Alt+Shift+Backspace</span></div>
+        <span className="text-neutral-400">profile/{active?.id ?? "—"}</span>
+        <span className="text-neutral-500">off: ctrl+alt+shift+bksp</span>
       </div>
     </nav>
   );
@@ -84,7 +83,7 @@ export function ChangesBar() {
   const errors = state.report?.errors ?? [];
   if (!dirty && errors.length === 0 && state.past.length === 0) return null;
   return (
-    <div className="sticky bottom-0 z-10 border-t border-zinc-800 bg-zinc-950/95 px-6 py-3 backdrop-blur">
+    <div className="sticky bottom-0 z-10 border-t border-neutral-800 bg-neutral-950/95 px-6 py-3 backdrop-blur">
       {errors.length > 0 && (
         <div className="mb-2">
           <Alert tone="error">
@@ -98,7 +97,7 @@ export function ChangesBar() {
         </div>
       )}
       <div className="flex flex-wrap items-center gap-2">
-        <span className="text-sm text-zinc-300">{dirty ? `${changes.length || 1} unsaved change${changes.length === 1 ? "" : "s"}` : "All changes saved"}</span>
+        <span className="text-sm text-neutral-300">{dirty ? `${changes.length || 1} unsaved change${changes.length === 1 ? "" : "s"}` : "All changes saved"}</span>
         <Button variant="ghost" disabled={state.past.length === 0} onClick={() => dispatch({ t: "undo" })} title="Undo (Ctrl+Z)">
           Undo
         </Button>
@@ -152,7 +151,7 @@ export function ChangesBar() {
               <h3 className="mb-2 font-medium">What changes</h3>
               <ul className="grid gap-1">
                 {changes.map((c, i) => (
-                  <li key={i} className="rounded-md bg-zinc-800/60 px-3 py-1.5">
+                  <li key={i} className="rounded-md bg-neutral-800/60 px-3 py-1.5">
                     {c}
                   </li>
                 ))}
@@ -165,7 +164,7 @@ export function ChangesBar() {
             )}
             {preview.report.warnings.length > 0 && <Alert tone="warn">{preview.report.warnings.map((e) => e.message).join("\n")}</Alert>}
             {preview.report.errors.length === 0 && (
-              <p className="text-zinc-400">
+              <p className="text-neutral-400">
                 Applying saves the current configuration as the last known-good copy first. If the engine cannot load the new one, the previous mappings stay active.
               </p>
             )}
@@ -174,7 +173,7 @@ export function ChangesBar() {
                 <Button variant="ghost" onClick={() => setShowScript(!showScript)} aria-expanded={showScript}>
                   {showScript ? "Hide" : "Show"} generated engine script
                 </Button>
-                {showScript && <pre className="mt-2 max-h-80 overflow-auto rounded-lg bg-zinc-950 p-3 text-xs text-zinc-300">{preview.script.slice(preview.script.indexOf("; --- Generated configuration"))}</pre>}
+                {showScript && <pre className="mt-2 max-h-80 overflow-auto rounded-lg bg-neutral-950 p-3 text-xs text-neutral-300">{preview.script.slice(preview.script.indexOf("; --- Generated configuration"))}</pre>}
               </section>
             )}
           </div>
@@ -258,9 +257,9 @@ export function Welcome() {
         </>
       }
     >
-      <div className="grid gap-3 text-sm text-zinc-300">
+      <div className="grid gap-3 text-sm text-neutral-300">
         <p>Should KeyForge start automatically when you sign in? It runs quietly in the tray so your keys work right away.</p>
-        <p className="text-zinc-400">
+        <p className="text-neutral-400">
           Mappings stay on or off as you leave them. <b>Ctrl+Alt+Shift+Backspace</b> always turns them off.
         </p>
       </div>

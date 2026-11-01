@@ -58,8 +58,61 @@ impl Sink for TauriSink {
                 }
             });
         }
+        if event == "overlay" {
+            let show = payload["show"].as_bool().unwrap_or(false);
+            let app = self.app.clone();
+            let _ = self.app.run_on_main_thread(move || show_overlay(&app, show));
+        }
         let _ = self.app.emit(&format!("kf://{event}"), payload);
     }
+}
+
+const OVERLAY_SIZE: (f64, f64) = (360.0, 560.0);
+const OVERLAY_MARGIN: f64 = 16.0;
+
+/// The cheat-sheet window: transparent, always on top, never focused and
+/// click-through, so it cannot take keys or clicks from the app in front.
+fn create_overlay(app: &AppHandle) -> tauri::Result<()> {
+    let window = tauri::WebviewWindowBuilder::new(app, "overlay", tauri::WebviewUrl::App("index.html".into()))
+        .title("KeyForge cheat sheet")
+        .inner_size(OVERLAY_SIZE.0, OVERLAY_SIZE.1)
+        .decorations(false)
+        .transparent(true)
+        .shadow(false)
+        .always_on_top(true)
+        .skip_taskbar(true)
+        .resizable(false)
+        .focusable(false)
+        .focused(false)
+        .visible(false)
+        .build()?;
+    let _ = window.set_ignore_cursor_events(true);
+    Ok(())
+}
+
+/// Show the cheat sheet in the bottom-right corner of the screen the mouse
+/// is on (above the taskbar), or hide it.
+fn show_overlay(app: &AppHandle, show: bool) {
+    let Some(window) = app.get_webview_window("overlay") else { return };
+    if !show {
+        let _ = window.hide();
+        return;
+    }
+    let monitor = app
+        .cursor_position()
+        .ok()
+        .and_then(|p| app.monitor_from_point(p.x, p.y).ok().flatten())
+        .or_else(|| app.primary_monitor().ok().flatten());
+    if let Some(monitor) = monitor {
+        let scale = monitor.scale_factor();
+        let area = monitor.work_area();
+        let (w, h) = (OVERLAY_SIZE.0 * scale, OVERLAY_SIZE.1 * scale);
+        let margin = OVERLAY_MARGIN * scale;
+        let x = area.position.x as f64 + area.size.width as f64 - w - margin;
+        let y = area.position.y as f64 + area.size.height as f64 - h - margin;
+        let _ = window.set_position(tauri::PhysicalPosition::new(x.round() as i32, y.round() as i32));
+    }
+    let _ = window.show();
 }
 
 /// Run controller work off the main thread: it may wait for the engine, and
@@ -251,6 +304,7 @@ pub fn run() {
             #[cfg(windows)]
             controller.register_emergency_hotkey();
             build_tray(&handle, &sink)?;
+            create_overlay(&handle)?;
             app.manage(Arc::clone(&controller));
 
             // Started at sign-in: stay in the tray. Otherwise show the window.

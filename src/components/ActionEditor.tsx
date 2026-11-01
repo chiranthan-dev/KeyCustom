@@ -67,7 +67,7 @@ export function ActionEditor({ value, onChange, profile, label = "Action" }: { v
         <Field label="Macro">
           {(id) =>
             profile.macros.length === 0 ? (
-              <div className="flex items-center gap-2 text-sm text-zinc-400">
+              <div className="flex items-center gap-2 text-sm text-neutral-400">
                 This profile has no macros yet.
                 <Button onClick={() => dispatch({ t: "nav", page: "macros", profileId: profile.id })}>Create one</Button>
               </div>
@@ -115,7 +115,7 @@ export function ActionEditor({ value, onChange, profile, label = "Action" }: { v
         </Field>
       )}
       {value.type === "script" && <ScriptEditor value={value} onChange={onChange} />}
-      {value.type === "block" && <p className="text-sm text-zinc-400">The key does nothing while this mapping is active, including in combinations (for example Win+E when the Windows key is blocked).</p>}
+      {value.type === "block" && <p className="text-sm text-neutral-400">The key does nothing while this mapping is active, including in combinations (for example Win+E when the Windows key is blocked).</p>}
       {value.type === "dateTime" && <DateFormatEditor format={value.format} onChange={(format) => onChange({ ...value, format })} />}
     </div>
   );
@@ -159,7 +159,7 @@ function ScriptEditor({ value, onChange }: { value: Extract<Action, { type: "scr
         )}
       </Field>
       <div className="flex flex-wrap items-center gap-2 text-sm">
-        {confirmed ? <Badge tone="emerald">Confirmed · {value.sha256.slice(0, 12)}…</Badge> : <Badge tone="amber">Not confirmed</Badge>}
+        {confirmed ? <Badge tone="ok">Confirmed · {value.sha256.slice(0, 12)}…</Badge> : <Badge tone="amber">Not confirmed</Badge>}
         {value.path && <Button onClick={() => confirm(value.path)}>{confirmed ? "Re-confirm" : "Confirm"}</Button>}
       </div>
       <Checkbox checked={value.confirmEachRun} onChange={(confirmEachRun) => onChange({ ...value, confirmEachRun })} label="Ask before every run" />
@@ -189,8 +189,8 @@ export function DateFormatEditor({ format, onChange }: { format: string; onChang
           {(id) => <Input id={id} value={format} onChange={(e) => onChange(e.target.value)} />}
         </Field>
       )}
-      <p className="text-sm text-zinc-400">
-        Types: <span className="font-mono text-zinc-200">{isValidDateFormat(format) ? formatDate(format) : "invalid format"}</span>
+      <p className="text-sm text-neutral-400">
+        Types: <span className="font-mono text-neutral-200">{isValidDateFormat(format) ? formatDate(format) : "invalid format"}</span>
       </p>
     </div>
   );

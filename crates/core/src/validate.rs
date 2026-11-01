@@ -51,6 +51,8 @@ impl Report {
 pub struct Plan<'a> {
     pub config: &'a Config,
     pub active: &'a str,
+    /// Key that shows the cheat sheet while held.
+    pub cheat_key: Option<KeyRef>,
     pub profiles: Vec<PlanProfile<'a>>,
 }
 
@@ -438,10 +440,37 @@ pub fn validate(config: &Config) -> (Report, Option<Plan<'_>>) {
         plan_profiles.push(PlanProfile { profile: p, switch, mappings, disabled_apps });
     }
 
+    let mut cheat_key = None;
+    if let Some(id) = &s.cheat_sheet_key {
+        match keys::resolve(id) {
+            None => Report::push(&mut report.errors, None, None, format!("Unknown cheat-sheet key \"{id}\".")),
+            Some(k) if k.modifier || k.id == EMERGENCY_KEY || is_typing_key(&k) => Report::push(
+                &mut report.errors,
+                None,
+                None,
+                format!("{} cannot open the cheat sheet; choose a key you do not type with, such as Menu, Pause or F13.", k.id),
+            ),
+            Some(k) => {
+                let clash = plan_profiles.iter().flat_map(|p| p.mappings.iter()).find(|m| m.key.id == k.id && m.mapping.trigger.mods.is_empty());
+                // An existing mapping wins: the cheat sheet steps aside rather
+                // than making a saved configuration invalid.
+                if let Some(m) = clash {
+                    let msg = format!("{} is mapped, so it does not open the cheat sheet. Choose another cheat-sheet key in Settings.", k.id);
+                    Report::push(&mut report.warnings, None, Some(&m.mapping.id), msg);
+                } else if switch_keys.keys().any(|(key, _)| *key == k.id) {
+                    let msg = format!("{} is part of a profile shortcut, so it does not open the cheat sheet.", k.id);
+                    Report::push(&mut report.warnings, None, None, msg);
+                } else {
+                    cheat_key = Some(k);
+                }
+            }
+        }
+    }
+
     if !report.ok() {
         return (report, None);
     }
-    (report, Some(Plan { config, active, profiles: plan_profiles }))
+    (report, Some(Plan { config, active, cheat_key, profiles: plan_profiles }))
 }
 
 #[cfg(test)]
@@ -615,6 +644,23 @@ pub(crate) mod tests {
         let (report, _) = validate(&config_with(vec![remap("a", "F13", "F14"), remap("b", "F14", "F13"), remap("c", "J", "K")]));
         assert!(report.ok());
         assert_eq!(report.warnings.len(), 3, "{report:?}");
+    }
+
+    #[test]
+    fn cheat_sheet_key_is_checked() {
+        let mut c = config_with(vec![remap("a", "AppsKey", "F13")]);
+        let (report, plan) = validate(&c);
+        assert!(report.ok(), "an existing mapping of the key wins");
+        assert!(report.warnings[0].message.contains("does not open the cheat sheet"));
+        assert!(plan.unwrap().cheat_key.is_none());
+        c.settings.cheat_sheet_key = Some("J".into());
+        c.profiles[0].mappings.clear();
+        assert!(errors(&c)[0].contains("cannot open the cheat sheet"));
+        c.settings.cheat_sheet_key = Some("F13".into());
+        assert!(errors(&c).is_empty());
+        c.settings.cheat_sheet_key = None;
+        c.profiles[0].mappings = vec![remap("a", "AppsKey", "F13")];
+        assert!(errors(&c).is_empty(), "no cheat key, AppsKey is free");
     }
 
     #[test]

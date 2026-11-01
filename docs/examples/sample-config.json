@@ -1,7 +1,7 @@
 {
   "version": 1,
   "activeProfile": "productivity",
-  "settings": { "tapHoldMs": 200, "doubleTapMs": 250, "closeToTray": true, "launchMappings": "restore" },
+  "settings": { "tapHoldMs": 200, "doubleTapMs": 250, "closeToTray": true, "launchMappings": "restore", "cheatSheetKey": "AppsKey" },
   "profiles": [
     {
       "id": "productivity",

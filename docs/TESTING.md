@@ -24,6 +24,7 @@ The Windows end-to-end suite checks:
 - detection;
 - the emergency shortcut leaves no stuck modifiers;
 - every template loads, and the block and date/time actions behave as expected;
+- tapping the cheat-sheet key types it, and holding it shows and then hides the cheat sheet;
 - a killed engine is restarted with mappings still working;
 - the Start-with-Windows registration is added and removed;
 - the engine exits when stdin closes or the supervisor is killed;
@@ -109,3 +110,8 @@ Use a non-elevated app such as Notepad for typing checks. "Mapped key" means a k
 33. In **Settings → Startup**, turn on *Start KeyForge when I sign in*, then sign out and in. KeyForge starts in the tray (no window), with mappings as you left them. Task Manager → Startup apps lists KeyForge; disabling it there shows the switch as off in KeyForge.
 34. The tray icon is coloured with a green dot while mappings are on, and grey when they are off.
 35. In **Templates**, use "Today's date" on F13 and "Disable the Windows key" on Left Win, then apply. F13 types today's date, and the Windows key and Win+E do nothing. Turn mappings off and the Windows key works again.
+
+### Cheat sheet and layouts
+36. With mappings on, tap the Menu key in Notepad: the context menu opens as usual. Hold it: after about ⅓ s a panel appears in the bottom-right corner, listing this profile's mappings (Notepad-only ones first, in amber). It disappears when you let go. Notepad keeps the focus and typing is unaffected.
+37. In **Settings → Cheat sheet**, choose Pause as the key and apply; holding Pause now shows the panel. Turn the cheat sheet off: Menu and Pause behave normally.
+38. In the Studio, switch the layout to **GK61 (60%)**. The number row shows F1–F12 legends and Fn is dashed. Press Fn+1 with **Detect**: it reports F1. Switch back to **Full-size**; the choice is remembered after a restart.

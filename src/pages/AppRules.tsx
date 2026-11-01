@@ -77,7 +77,7 @@ export function AppRules() {
                 <div className="flex flex-wrap items-center gap-3">
                   <Toggle label={`Rule for ${r.process} on or off`} checked={r.enabled} onChange={(on) => update(r.id, (x) => (x.enabled = on))} />
                   <span className="font-medium">{r.name || r.process}</span>
-                  <Badge tone={r.mode === "disable" ? "amber" : "sky"}>{r.mode === "disable" ? "mappings off" : "app-specific mappings"}</Badge>
+                  <Badge tone={r.mode === "disable" ? "amber" : "accent"}>{r.mode === "disable" ? "mappings off" : "app-specific mappings"}</Badge>
                   <Select aria-label={`Rule for ${r.process}`} value={r.mode} onChange={(e) => update(r.id, (x) => (x.mode = e.target.value as AppRule["mode"]))} className="ml-auto">
                     <option value="override">Use app-specific mappings</option>
                     <option value="disable">Turn global mappings off</option>
@@ -97,12 +97,12 @@ export function AppRules() {
                   </Button>
                 </div>
                 <div className="mt-3 grid gap-1.5 text-sm">
-                  {r.mode === "disable" && <p className="text-zinc-400">While {r.process} is in front, this profile's global mappings are off. Its app-specific mappings below still work.</p>}
+                  {r.mode === "disable" && <p className="text-neutral-400">While {r.process} is in front, this profile's global mappings are off. Its app-specific mappings below still work.</p>}
                   {maps.length === 0 ? (
-                    <p className="text-zinc-500">No app-specific mappings yet.</p>
+                    <p className="text-neutral-500">No app-specific mappings yet.</p>
                   ) : (
                     maps.map((m) => (
-                      <p key={m.id} className="text-zinc-300">
+                      <p key={m.id} className="text-neutral-300">
                         <span className="font-mono text-xs">{chordLabel(m.trigger, state.keys)}</span> — {describeMapping(m, state.keys, profile)}
                       </p>
                     ))
@@ -116,7 +116,7 @@ export function AppRules() {
           })}
         </div>
       )}
-      <p className="text-xs text-zinc-500">
+      <p className="text-xs text-neutral-500">
         Programs running as administrator (elevated) cannot be controlled while KeyForge runs without elevation. This is a Windows security boundary.
       </p>
     </>

@@ -139,7 +139,11 @@ pub fn generate(plan: &Plan<'_>, opts: &GenOptions<'_>) -> String {
         }
     }
 
-    hotkeys.push_str("\n; --- Profile shortcuts\n#HotIf\n");
+    hotkeys.push_str("\n; --- Profile shortcuts and cheat sheet\n#HotIf\n");
+    if let Some(key) = &plan.cheat_key {
+        let _ = writeln!(hotkeys, "*{}::KF_Cheat({})", key.hotkey, quote(&key.hotkey));
+        up_keys.insert(key.hotkey.clone());
+    }
     for pp in &plan.profiles {
         if let Some((key, mods)) = &pp.switch {
             let _ = writeln!(hotkeys, "{}{}::KF_SetProfile({})", mods.ahk_prefix(), key.hotkey, quote(&pp.profile.id));
@@ -247,7 +251,9 @@ mod tests {
 
     #[test]
     fn plain_remap_uses_down_and_always_on_up() {
-        let out = generated(&config_with(vec![remap("play", "F13", "Media_Play_Pause"), remap("semi", "Semicolon", "vkE9sc0F1")]));
+        let mut c = config_with(vec![remap("play", "F13", "Media_Play_Pause"), remap("semi", "Semicolon", "vkE9sc0F1")]);
+        c.settings.cheat_sheet_key = None;
+        let out = generated(&c);
         assert!(out.contains("#HotIf KF_On(\"productivity\", \"\", \"\")\n*F13::KF_RemapDown(\"productivity/play\", \"F13\", \"Media_Play_Pause\")"), "{out}");
         assert!(out.contains("*SC027::KF_RemapDown(\"productivity/semi\", \"SC027\", \"vkE9\")"), "{out}");
         assert!(
@@ -327,6 +333,7 @@ mod tests {
     #[test]
     fn profiles_apps_and_switch_keys() {
         let mut c = Config::default();
+        c.settings.cheat_sheet_key = None;
         c.profiles[1].switch_key = Some(Chord { key: "D1".into(), mods: Modifiers { ctrl: true, alt: true, ..Default::default() } });
         c.profiles[1].auto_apps = vec!["Code.exe".into()];
         let mut app = remap("b", "F13", "F15");
@@ -350,10 +357,19 @@ mod tests {
 
     #[test]
     fn empty_config_is_valid_script() {
-        let out = generated(&Config::default());
+        let mut c = Config::default();
+        c.settings.cheat_sheet_key = None;
+        let out = generated(&c);
         assert!(out.starts_with("KF_Profile := \"productivity\"\n"));
         assert!(out.contains("KF_Start()"));
         assert!(!out.contains("KF_Run(") && !out.contains("up::"));
+    }
+
+    #[test]
+    fn cheat_sheet_key_is_held_globally() {
+        let out = generated(&Config::default());
+        assert!(out.contains("#HotIf\n*AppsKey::KF_Cheat(\"AppsKey\")"), "{out}");
+        assert!(out.contains("#HotIf KF_IsDown(\"AppsKey\")\n*AppsKey up::KF_Release(\"AppsKey\")"), "{out}");
     }
 
     #[test]

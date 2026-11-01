@@ -314,6 +314,9 @@ pub struct Settings {
     pub close_to_tray: bool,
     /// Whether mappings are on when KeyForge starts.
     pub launch_mappings: LaunchMappings,
+    /// Hold this key to show the cheat sheet; a short tap still types it.
+    /// `null` turns the cheat sheet off.
+    pub cheat_sheet_key: Option<String>,
     /// Custom AutoHotkey v2 executable; the bundled copy is used otherwise.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub ahk_path: Option<String>,
@@ -321,7 +324,14 @@ pub struct Settings {
 
 impl Default for Settings {
     fn default() -> Self {
-        Settings { tap_hold_ms: 200, double_tap_ms: 250, close_to_tray: true, launch_mappings: LaunchMappings::Restore, ahk_path: None }
+        Settings {
+            tap_hold_ms: 200,
+            double_tap_ms: 250,
+            close_to_tray: true,
+            launch_mappings: LaunchMappings::Restore,
+            cheat_sheet_key: Some("AppsKey".into()),
+            ahk_path: None,
+        }
     }
 }
 

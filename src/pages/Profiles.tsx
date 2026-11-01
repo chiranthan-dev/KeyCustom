@@ -56,7 +56,7 @@ function ProfileCard({ p, onDuplicate, onOpen }: { p: Profile; onDuplicate: () =
       title={p.name}
       aside={
         <div className="flex items-center gap-2">
-          {isActive ? <Badge tone="emerald">active</Badge> : <Button disabled={!savedExists || state.busy} title={savedExists ? undefined : "Apply changes first"} onClick={() => setActiveProfile(p.id)}>Activate</Button>}
+          {isActive ? <Badge tone="ok">active</Badge> : <Button disabled={!savedExists || state.busy} title={savedExists ? undefined : "Apply changes first"} onClick={() => setActiveProfile(p.id)}>Activate</Button>}
         </div>
       }
     >
@@ -84,11 +84,11 @@ function ProfileCard({ p, onDuplicate, onOpen }: { p: Profile; onDuplicate: () =
           {(id) => (
             <div className="grid gap-2">
               <div className="flex flex-wrap gap-1.5">
-                {p.autoApps.length === 0 && <span className="text-sm text-zinc-500">None</span>}
+                {p.autoApps.length === 0 && <span className="text-sm text-neutral-500">None</span>}
                 {p.autoApps.map((a) => (
-                  <span key={a} className="inline-flex items-center gap-1 rounded-md bg-zinc-800 px-2 py-0.5 text-xs">
+                  <span key={a} className="inline-flex items-center gap-1 rounded-md bg-neutral-800 px-2 py-0.5 text-xs">
                     {a}
-                    <button type="button" aria-label={`Remove ${a}`} className="text-zinc-400 hover:text-zinc-100" onClick={() => update((x) => (x.autoApps = x.autoApps.filter((y) => y !== a)))}>
+                    <button type="button" aria-label={`Remove ${a}`} className="text-neutral-400 hover:text-neutral-100" onClick={() => update((x) => (x.autoApps = x.autoApps.filter((y) => y !== a)))}>
                       ✕
                     </button>
                   </span>
@@ -112,7 +112,7 @@ function ProfileCard({ p, onDuplicate, onOpen }: { p: Profile; onDuplicate: () =
             </div>
           )}
         </Field>
-        <p className="text-sm text-zinc-400">
+        <p className="text-sm text-neutral-400">
           {p.mappings.length} mappings · {p.macros.length} macros · {p.appRules.length} app rules
           {p.switchKey && (
             <>

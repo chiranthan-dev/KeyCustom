@@ -35,6 +35,7 @@ export interface Events {
   fired: { profile: string; mapping: string };
   profile: string;
   log: string;
+  overlay: { show: boolean; app?: string; profile?: string };
 }
 
 export function onEvent<K extends keyof Events>(name: K, handler: (payload: Events[K]) => void): Promise<UnlistenFn> {

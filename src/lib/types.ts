@@ -85,6 +85,7 @@ export interface Settings {
   doubleTapMs: number;
   closeToTray: boolean;
   launchMappings: "restore" | "off" | "on";
+  cheatSheetKey: string | null;
   ahkPath?: string | null;
 }
 

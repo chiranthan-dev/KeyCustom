@@ -29,7 +29,7 @@ export function Templates() {
             role="tab"
             aria-selected={group === g}
             onClick={() => setGroup(g)}
-            className={`rounded-full px-3 py-1 text-sm ${group === g ? "bg-sky-500 text-zinc-950" : "bg-zinc-800 text-zinc-300 hover:bg-zinc-700"}`}
+            className={`rounded-full px-3 py-1 text-sm ${group === g ? "bg-lime-500 text-neutral-950" : "bg-neutral-800 text-neutral-300 hover:bg-neutral-700"}`}
           >
             {g}
           </button>
@@ -40,8 +40,8 @@ export function Templates() {
         if (items.length === 0) return null;
         return (
           <section key={g.group} aria-label={g.group} className="grid gap-2">
-            <h2 className="mt-2 text-sm font-medium text-zinc-300">
-              {g.group} <span className="font-normal text-zinc-500">· {g.blurb}</span>
+            <h2 className="mt-2 text-sm font-medium text-neutral-300">
+              {g.group} <span className="font-normal text-neutral-500">· {g.blurb}</span>
             </h2>
             <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
               {items.map((t) => (
@@ -49,14 +49,14 @@ export function Templates() {
                   key={t.id}
                   type="button"
                   onClick={() => setUsing(t)}
-                  className="group flex flex-col gap-1 rounded-xl border border-zinc-800 bg-zinc-900/60 p-4 text-left transition-colors hover:border-sky-700 hover:bg-zinc-900"
+                  className="group flex flex-col gap-1 rounded-xl border border-neutral-800 bg-neutral-900/60 p-4 text-left transition-colors hover:border-lime-700 hover:bg-neutral-900"
                 >
                   <span className="flex items-center justify-between gap-2">
-                    <span className="font-medium text-zinc-100">{t.name}</span>
-                    {t.macro ? <Badge tone="sky">macro · {t.macro.steps.length} steps</Badge> : null}
+                    <span className="font-medium text-neutral-100">{t.name}</span>
+                    {t.macro ? <Badge tone="accent">macro · {t.macro.steps.length} steps</Badge> : null}
                   </span>
-                  <span className="text-sm text-zinc-400">{t.description}</span>
-                  <span className="mt-2 text-xs text-sky-400 opacity-0 transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100">Use this →</span>
+                  <span className="text-sm text-neutral-400">{t.description}</span>
+                  <span className="mt-2 text-xs text-lime-400 opacity-0 transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100">Use this →</span>
                 </button>
               ))}
             </div>
@@ -117,7 +117,7 @@ function UseTemplate({ template, onClose }: { template: Template; onClose: () =>
       }
     >
       <div className="grid gap-4">
-        <p className="text-sm text-zinc-400">{template.description}</p>
+        <p className="text-sm text-neutral-400">{template.description}</p>
         <Field label="Key">{() => <ChordPicker value={trigger} onChange={setTrigger} label="Key for this template" />}</Field>
         <div className="grid gap-3 sm:grid-cols-2">
           <Field label="Profile">
@@ -147,12 +147,12 @@ function UseTemplate({ template, onClose }: { template: Template; onClose: () =>
         {existing && <Alert tone="warn">{chordLabel(trigger, state.keys)} already {describeAction(existing.action, state.keys, profile).toLowerCase()}. Adding replaces it.</Alert>}
         {template.macro ? (
           <Card title={`Macro “${template.macro.name}”`}>
-            <ol className="grid list-decimal gap-1 pl-5 text-sm text-zinc-300">
+            <ol className="grid list-decimal gap-1 pl-5 text-sm text-neutral-300">
               {template.macro.steps.map((s, i) => (
                 <li key={i}>{describeStep(s, state.keys)}</li>
               ))}
             </ol>
-            {template.personalize && <p className="mt-2 text-xs text-zinc-500">{template.personalize}.</p>}
+            {template.personalize && <p className="mt-2 text-xs text-neutral-500">{template.personalize}.</p>}
           </Card>
         ) : (
           action &&
@@ -162,7 +162,7 @@ function UseTemplate({ template, onClose }: { template: Template; onClose: () =>
               <ActionEditor value={action} onChange={setAction} profile={profile} label="Action" />
             </div>
           ) : (
-            <p className="text-sm text-zinc-300">Does: {describeAction(action, state.keys, profile)}</p>
+            <p className="text-sm text-neutral-300">Does: {describeAction(action, state.keys, profile)}</p>
           ))
         )}
       </div>

@@ -11,7 +11,7 @@ import { StoreProvider, useStore } from "./store";
 function Main() {
   const { state } = useStore();
   if (!state.draft || !state.status) {
-    return <div className="grid h-screen place-items-center text-sm text-zinc-500">{state.toast?.text ?? "Loading…"}</div>;
+    return <div className="grid h-screen place-items-center text-sm text-neutral-500">{state.toast?.text ?? "Loading…"}</div>;
   }
   const Page = { dashboard: Dashboard, studio: Studio, templates: Templates, macros: Macros, profiles: Profiles, apps: AppRules, settings: Settings }[state.page];
   return (

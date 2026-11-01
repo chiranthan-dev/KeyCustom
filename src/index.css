@@ -1,12 +1,23 @@
 @import "tailwindcss";
 
+/* Mono theme: square corners, monospace labels, lime accent. */
+@theme {
+  --font-sans: "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", "Cascadia Mono", Consolas, ui-monospace, monospace;
+  --radius-sm: 1px;
+  --radius-md: 2px;
+  --radius-lg: 2px;
+  --radius-xl: 3px;
+  --radius-2xl: 4px;
+}
+
 :root {
   color-scheme: dark;
-  font-family: "Segoe UI Variable", "Segoe UI", system-ui, sans-serif;
+  font-family: var(--font-sans);
 }
 
 /* Visible focus ring for keyboard navigation on every control. */
 :focus-visible {
-  outline: 2px solid var(--color-sky-400);
+  outline: 2px solid var(--color-lime-400);
   outline-offset: 2px;
 }

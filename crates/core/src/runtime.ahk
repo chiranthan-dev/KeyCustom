@@ -227,6 +227,21 @@ KF_FirePending(id, tap) {
     }
 }
 
+; Cheat sheet: a short tap types the key as usual; holding it shows the
+; cheat sheet for the app in front until the key is released.
+KF_Cheat(key) {
+    KF_Down[key] := ""
+    if KF_WaitUp(key, 300) {
+        Send "{Blind}{" key "}"
+        return
+    }
+    exe := KF_FgExe()
+    profile := (exe != "" && KF_AutoApps.Has(exe)) ? KF_AutoApps[exe] : KF_Profile
+    KF_Emit('{"event":"overlay","show":true,"app":' KF_Json(exe) ',"profile":' KF_Json(profile) '}')
+    KF_WaitUp(key)
+    KF_Emit('{"event":"overlay","show":false}')
+}
+
 KF_Test(id) {
     if !KF_Tests.Has(id) {
         KF_Emit('{"event":"error","message":' KF_Json("Mapping " id " is not active in the engine.") '}')

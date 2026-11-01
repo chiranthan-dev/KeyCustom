@@ -36,6 +36,7 @@ Unknown fields are ignored. Optional fields can be left out. A complete example 
     "doubleTapMs": 250,               // 100–1000: window for the second tap
     "closeToTray": true,
     "launchMappings": "restore",      // "restore" (as you left them), "on" or "off"
+    "cheatSheetKey": "AppsKey",       // hold to show the cheat sheet; null turns it off
     "ahkPath": null                   // optional custom AutoHotkey64.exe
   },
   "profiles": [ /* 1–32 profiles */ ]
@@ -140,6 +141,8 @@ KeyForge rejects a configuration (and changes nothing) when any of these is true
 - **Invalid fields:**
   - empty launch paths, URLs that are not http(s), empty text, missing macros, unconfirmed scripts, out-of-range timings or delays;
   - a modifier key used as a trigger together with other modifiers.
+
+The cheat-sheet key must be a key you do not type with: not a letter, digit, punctuation, Space, Enter, Tab, modifier or Backspace. If one of your mappings already uses it, the mapping wins and the cheat sheet is off (a warning says so).
 
 KeyForge warns, but still applies, when:
 

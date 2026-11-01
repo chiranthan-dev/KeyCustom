@@ -27,15 +27,15 @@ export function Dashboard() {
           <div className="flex flex-wrap items-center gap-4">
             <Toggle label="Pause or resume all mappings" checked={status.enabled} disabled={state.busy || !status.ahkPath} onChange={setEnabled} />
             <div>
-              <p className={`text-lg font-semibold ${status.enabled ? "text-emerald-400" : "text-zinc-300"}`}>{status.enabled ? "Active" : "Paused"}</p>
-              <p className="text-sm text-zinc-400">
+              <p className={`text-lg font-semibold ${status.enabled ? "text-lime-400" : "text-neutral-300"}`}>{status.enabled ? "Active" : "Paused"}</p>
+              <p className="text-sm text-neutral-400">
                 {status.enabled
                   ? "Your mappings work in every app that is not running as administrator."
                   : "Keys behave normally until you turn mappings on. KeyForge remembers your choice across restarts."}
               </p>
             </div>
           </div>
-          <p className="mt-4 text-xs text-zinc-500">
+          <p className="mt-4 text-xs text-neutral-500">
             Emergency off at any time: <Kbd>{status.emergencyShortcut}</Kbd>. It cannot be remapped.
           </p>
         </Card>
@@ -48,13 +48,13 @@ export function Dashboard() {
             ))}
           </Select>
           <dl className="mt-4 grid grid-cols-2 gap-y-1 text-sm">
-            <dt className="text-zinc-400">Enabled mappings</dt>
+            <dt className="text-neutral-400">Enabled mappings</dt>
             <dd className="text-right font-medium">{enabledCount}</dd>
-            <dt className="text-zinc-400">Macros</dt>
+            <dt className="text-neutral-400">Macros</dt>
             <dd className="text-right font-medium">{active.macros.length}</dd>
-            <dt className="text-zinc-400">App rules</dt>
+            <dt className="text-neutral-400">App rules</dt>
             <dd className="text-right font-medium">{active.appRules.length}</dd>
-            <dt className="text-zinc-400">Shortcut</dt>
+            <dt className="text-neutral-400">Shortcut</dt>
             <dd className="text-right">{active.switchKey ? <Kbd>{chordLabel(active.switchKey, state.keys)}</Kbd> : "—"}</dd>
           </dl>
         </Card>
@@ -62,7 +62,7 @@ export function Dashboard() {
 
       {saved.profiles.every((p) => p.mappings.length === 0) && (
         <Card title="Get started">
-          <ol className="grid list-decimal gap-1.5 pl-5 text-sm text-zinc-300">
+          <ol className="grid list-decimal gap-1.5 pl-5 text-sm text-neutral-300">
             <li>Open <b>Keyboard Studio</b> and click a key, or use <b>Detect</b> and press the key you want to use.</li>
             <li>Choose what it should do and click <b>Save mapping</b>.</li>
             <li>Click <b>Apply changes</b> at the bottom. This saves your mappings.</li>
@@ -86,11 +86,11 @@ export function Dashboard() {
                 <li key={`${p.id}/${m.id}`}>
                   <button
                     type="button"
-                    className="flex w-full items-center gap-3 rounded-lg px-2 py-1.5 text-left text-sm hover:bg-zinc-800"
+                    className="flex w-full items-center gap-3 rounded-lg px-2 py-1.5 text-left text-sm hover:bg-neutral-800"
                     onClick={() => dispatch({ t: "nav", page: "studio", profileId: p.id, scope: m.app ?? "", selectedKey: m.trigger.key })}
                   >
                     <Kbd>{chordLabel(m.trigger, state.keys)}</Kbd>
-                    <span className="min-w-0 flex-1 truncate text-zinc-300">{describeMapping(m, state.keys, p)}</span>
+                    <span className="min-w-0 flex-1 truncate text-neutral-300">{describeMapping(m, state.keys, p)}</span>
                     <Badge>{p.name}</Badge>
                     {!m.enabled && <Badge tone="amber">off</Badge>}
                   </button>
@@ -106,9 +106,9 @@ export function Dashboard() {
             <ul className="grid gap-1.5 text-sm">
               {state.fired.map((f, i) => (
                 <li key={i} className="flex items-center gap-3">
-                  <span className="w-20 text-xs text-zinc-500">{new Date(f.at).toLocaleTimeString()}</span>
+                  <span className="w-20 text-xs text-neutral-500">{new Date(f.at).toLocaleTimeString()}</span>
                   <Kbd>{mappingName(f.profile, f.mapping)}</Kbd>
-                  <span className="text-zinc-500">{saved.profiles.find((p) => p.id === f.profile)?.name}</span>
+                  <span className="text-neutral-500">{saved.profiles.find((p) => p.id === f.profile)?.name}</span>
                 </li>
               ))}
             </ul>

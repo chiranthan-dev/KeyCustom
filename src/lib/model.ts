@@ -282,3 +282,67 @@ export function diffConfigs(before: Config, after: Config, keys: KeyDef[] = []):
 export function isValidProcess(name: string): boolean {
   return /^[^\\/:*?"<>|\x00-\x1f]+\.exe$/i.test(name.trim()) && name.trim().length <= 260;
 }
+
+const SHORT_MEDIA: Record<MediaAction, string> = {
+  playPause: "play",
+  next: "next",
+  previous: "prev",
+  stop: "stop",
+  volumeUp: "vol+",
+  volumeDown: "vol−",
+  mute: "mute",
+};
+
+/** A few characters for a keycap: what the key does when tapped. */
+export function shortAction(m: Mapping, keys: KeyDef[] = [], profile?: Profile): string {
+  if (m.name && m.name.length <= 14) return m.name.toLowerCase();
+  const a = m.action;
+  switch (a.type) {
+    case "remap":
+      return keyLabel(a.to, keys).toLowerCase();
+    case "shortcut":
+      return chordLabel(a.keys, keys).replace(/ \+ /g, "+").toLowerCase();
+    case "launch":
+      return basename(a.path).replace(/\.(exe|lnk)$/i, "").toLowerCase() || "app";
+    case "url":
+      return a.url.replace(/^https?:\/\/(www\.)?/, "").split(/[/?#]/)[0] || "web";
+    case "text":
+      return "text";
+    case "macro":
+      return (profile?.macros.find((x) => x.id === a.macro)?.name ?? "macro").toLowerCase();
+    case "media":
+      return SHORT_MEDIA[a.action];
+    case "system":
+      return (SYSTEM_LABELS[a.action] ?? a.action).toLowerCase();
+    case "script":
+      return "script";
+    case "block":
+      return "off";
+    case "dateTime":
+      return /[Hhms]/.test(a.format) && !/[dMy]/.test(a.format) ? "time" : "date";
+  }
+}
+
+export interface CheatRow {
+  trigger: Chord;
+  action: string;
+  /** Only in the app that is in front. */
+  appOnly: boolean;
+}
+
+/**
+ * What the cheat sheet lists for `profileId` with `app` in front: the app's
+ * own mappings first, then global ones it does not override. Global mappings
+ * are left out when an app rule turns them off for this app.
+ */
+export function cheatSheetRows(config: Config, profileId: string, app: string, keys: KeyDef[] = []): { profile: Profile | undefined; rows: CheatRow[]; globalOff: boolean } {
+  const profile = config.profiles.find((p) => p.id === profileId) ?? config.profiles.find((p) => p.id === config.activeProfile);
+  if (!profile) return { profile, rows: [], globalOff: false };
+  const exe = app.toLowerCase();
+  const enabled = profile.mappings.filter((m) => m.enabled);
+  const own = exe ? enabled.filter((m) => (m.app ?? "").toLowerCase() === exe) : [];
+  const globalOff = !!exe && profile.appRules.some((r) => r.enabled && r.mode === "disable" && r.process.toLowerCase() === exe);
+  const global = globalOff ? [] : enabled.filter((m) => !m.app && !own.some((o) => sameTrigger(o.trigger, m.trigger)));
+  const row = (m: Mapping, appOnly: boolean): CheatRow => ({ trigger: m.trigger, action: m.name || describeMapping(m, keys, profile), appOnly });
+  return { profile, rows: [...own.map((m) => row(m, true)), ...global.map((m) => row(m, false))], globalOff };
+}

@@ -1,6 +1,7 @@
 import { ask, open, save } from "@tauri-apps/plugin-dialog";
 import { useEffect, useState } from "react";
 import { Alert, Badge, Button, Card, Checkbox, Field, Input, Kbd, PageHeader, Select, Toggle } from "../components/ui";
+import { KeySelect } from "../components/pickers";
 import { api } from "../lib/api";
 import type { BackupInfo } from "../lib/types";
 import { useStore } from "../store";
@@ -41,27 +42,42 @@ export function Settings() {
                 </Select>
               )}
             </Field>
-            <p className="text-xs text-zinc-500">Settings take effect when you apply changes.</p>
+            <p className="text-xs text-neutral-500">Settings take effect when you apply changes.</p>
           </div>
         </Card>
 
         <StartupCard />
 
+        <Card title="Cheat sheet">
+          <div className="grid gap-3 text-sm">
+            <Checkbox
+              checked={s.cheatSheetKey !== null}
+              onChange={(on) => setSetting("cheatSheetKey", on ? "AppsKey" : null)}
+              label="Hold a key to see your mappings in the corner of the screen"
+            />
+            {s.cheatSheetKey !== null && (
+              <Field label="Key to hold" hint="A short tap still works as the normal key. Holding it for a moment shows the mappings for the app in front until you let go. Works while mappings are on.">
+                {(id) => <KeySelect id={id} value={s.cheatSheetKey ?? "AppsKey"} onChange={(k) => setSetting("cheatSheetKey", k)} />}
+              </Field>
+            )}
+          </div>
+        </Card>
+
         <Card title="Safety">
-          <div className="grid gap-3 text-sm text-zinc-300">
+          <div className="grid gap-3 text-sm text-neutral-300">
             <p>
               <Kbd>{status.emergencyShortcut}</Kbd> turns every mapping off immediately. Mappings cannot override it.{" "}
-              {status.emergencyRegistered ? <Badge tone="emerald">backup registration active</Badge> : <Badge tone="amber">engine only</Badge>}
+              {status.emergencyRegistered ? <Badge tone="ok">backup registration active</Badge> : <Badge tone="amber">engine only</Badge>}
             </p>
-            <p className="text-zinc-400">
+            <p className="text-neutral-400">
               If the engine stops or crashes, Windows removes its keyboard hook and KeyForge releases any stuck modifier keys. If KeyForge itself closes or
               crashes, Windows ends the engine too. The tray menu can pause and resume mappings at any time.
             </p>
-            <p className="text-zinc-400">
+            <p className="text-neutral-400">
               KeyForge runs without administrator rights. Windows does not let it see or send keys while an app running as administrator is in front.
               {status.elevatedEngine && <b className="text-amber-200"> The engine is currently running as administrator.</b>}
             </p>
-            <p className="text-zinc-400">
+            <p className="text-neutral-400">
               Privacy: KeyForge never records, stores or sends keystrokes or clipboard contents. Key detection reads one key when you ask, then stops. Nothing
               leaves your PC.
             </p>
@@ -70,11 +86,11 @@ export function Settings() {
 
         <Card title="Engine">
           <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-sm">
-            <dt className="text-zinc-400">AutoHotkey</dt>
+            <dt className="text-neutral-400">AutoHotkey</dt>
             <dd className="break-all">{status.ahkPath ?? "not found"}</dd>
-            <dt className="text-zinc-400">Version</dt>
+            <dt className="text-neutral-400">Version</dt>
             <dd>{status.ahkVersion ?? "starts with the engine"}</dd>
-            <dt className="text-zinc-400">State</dt>
+            <dt className="text-neutral-400">State</dt>
             <dd>{status.engineRunning ? "running" : "stopped"}</dd>
           </dl>
           <div className="mt-4 grid gap-2">
@@ -97,7 +113,7 @@ export function Settings() {
         </Card>
 
         <Card title="Configuration and backups">
-          <p className="mb-3 text-sm break-all text-zinc-400">Stored in {status.dataDir}</p>
+          <p className="mb-3 text-sm break-all text-neutral-400">Stored in {status.dataDir}</p>
           <div className="flex flex-wrap gap-2">
             <Button
               onClick={async () => {
@@ -138,15 +154,15 @@ export function Settings() {
               Reset to defaults
             </Button>
           </div>
-          <h3 className="mt-4 mb-2 text-xs text-zinc-500">Backups (newest first, last 20 kept)</h3>
+          <h3 className="mt-4 mb-2 text-xs text-neutral-500">Backups (newest first, last 20 kept)</h3>
           {backups.length === 0 ? (
-            <p className="text-sm text-zinc-500">No backups yet. One is made automatically before every import, restore and reset.</p>
+            <p className="text-sm text-neutral-500">No backups yet. One is made automatically before every import, restore and reset.</p>
           ) : (
             <ul className="grid max-h-48 gap-1 overflow-y-auto text-sm">
               {backups.map((b) => (
                 <li key={b.name} className="flex items-center justify-between gap-2">
                   <span>
-                    {new Date(b.created).toLocaleString()} <span className="text-xs text-zinc-500">{b.name.split("-").pop()?.replace(".json", "")}</span>
+                    {new Date(b.created).toLocaleString()} <span className="text-xs text-neutral-500">{b.name.split("-").pop()?.replace(".json", "")}</span>
                   </span>
                   <Button
                     variant="ghost"
@@ -166,9 +182,9 @@ export function Settings() {
 
         <Card title="Diagnostics" className="lg:col-span-2" aside={<Button variant="ghost" onClick={refresh}>Refresh</Button>}>
           {logs.length === 0 ? (
-            <p className="text-sm text-zinc-500">No engine messages. Errors from actions (for example a program that could not be started) appear here.</p>
+            <p className="text-sm text-neutral-500">No engine messages. Errors from actions (for example a program that could not be started) appear here.</p>
           ) : (
-            <pre className="max-h-60 overflow-auto rounded-lg bg-zinc-950 p-3 text-xs whitespace-pre-wrap text-zinc-300">{logs.join("\n")}</pre>
+            <pre className="max-h-60 overflow-auto rounded-lg bg-neutral-950 p-3 text-xs whitespace-pre-wrap text-neutral-300">{logs.join("\n")}</pre>
           )}
           <div className="mt-3">
             <Alert tone="info">
@@ -201,8 +217,8 @@ function StartupCard() {
           }}
         />
         <div className="text-sm">
-          <p className="text-zinc-200">Start KeyForge when I sign in to Windows</p>
-          <p className="mt-1 text-zinc-400">
+          <p className="text-neutral-200">Start KeyForge when I sign in to Windows</p>
+          <p className="mt-1 text-neutral-400">
             It starts quietly in the tray, with mappings on or off as set under Behaviour. No administrator rights are needed; you can also turn it off in Task
             Manager's Startup apps.
           </p>

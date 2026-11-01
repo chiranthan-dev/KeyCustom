@@ -301,6 +301,32 @@ fn every_template_loads_in_autohotkey() {
 }
 
 #[test]
+fn cheat_sheet_key_tap_types_and_hold_shows_overlay() {
+    let _g = serial();
+    let Some(exe) = ahk_exe() else { return };
+    let observer = Observer::start();
+    let mut c = config_with(vec![]);
+    c.settings.cheat_sheet_key = Some("F19".into());
+    let (engine, rx) = start_config(&exe, "cheat", &c);
+
+    tap(VK_F19);
+    settle(500);
+    assert!(observer.saw(VK_F19, false) && observer.saw(VK_F19, true), "a tap passes the key through: {:?}", observer.seen());
+    assert!(!rx.try_iter().any(|e| matches!(e, EngineEvent::Protocol(Event::Overlay { show: true, .. }))));
+
+    observer.clear();
+    send(&[key(VK_F19, false)]);
+    let shown = wait_for(&rx, Duration::from_secs(3), |e| matches!(e, EngineEvent::Protocol(Event::Overlay { show: true, .. })));
+    let EngineEvent::Protocol(Event::Overlay { profile, .. }) = shown else { unreachable!() };
+    assert_eq!(profile, "productivity");
+    send(&[key(VK_F19, true)]);
+    wait_for(&rx, Duration::from_secs(3), |e| matches!(e, EngineEvent::Protocol(Event::Overlay { show: false, .. })));
+    settle(200);
+    assert!(!observer.saw_any(VK_F19), "a hold never types the key: {:?}", observer.seen());
+    engine.stop(Duration::from_secs(3));
+}
+
+#[test]
 fn block_and_date_time_actions() {
     let _g = serial();
     let Some(exe) = ahk_exe() else { return };

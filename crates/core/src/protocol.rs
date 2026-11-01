@@ -21,6 +21,14 @@ pub enum Event {
     Fired { id: String },
     /// The active profile changed (profile shortcut or `profile` command).
     Profile { id: String },
+    /// Show or hide the cheat sheet for `profile` with `app` in front.
+    Overlay {
+        show: bool,
+        #[serde(default)]
+        app: String,
+        #[serde(default)]
+        profile: String,
+    },
     Error { message: String },
     Exit { reason: String },
 }
@@ -102,6 +110,11 @@ mod tests {
         assert_eq!(parse_event(r#"{"event":"pong"}"#).unwrap(), Event::Pong);
         assert_eq!(parse_event(r#"{"event":"fired","id":"p/m"}"#).unwrap(), Event::Fired { id: "p/m".into() });
         assert_eq!(parse_event(r#"{"event":"profile","id":"gaming"}"#).unwrap(), Event::Profile { id: "gaming".into() });
+        assert_eq!(
+            parse_event(r#"{"event":"overlay","show":true,"app":"notepad.exe","profile":"study"}"#).unwrap(),
+            Event::Overlay { show: true, app: "notepad.exe".into(), profile: "study".into() }
+        );
+        assert_eq!(parse_event(r#"{"event":"overlay","show":false}"#).unwrap(), Event::Overlay { show: false, app: String::new(), profile: String::new() });
         assert_eq!(parse_event(r#"{"event":"exit","reason":"emergency"}"#).unwrap(), Event::Exit { reason: "emergency".into() });
         let Event::Key(key) = parse_event(r#"{"event":"key","name":"F13","vk":124,"sc":100,"ctrl":true,"shift":false,"alt":false,"win":false}"#).unwrap() else {
             panic!()

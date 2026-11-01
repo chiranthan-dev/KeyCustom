@@ -2,8 +2,8 @@ import { useMemo, useState } from "react";
 import { ActionEditor } from "../components/ActionEditor";
 import { Alert, Badge, Button, Card, Checkbox, Empty, Field, Input, Kbd, PageHeader, Select, Toggle } from "../components/ui";
 import { api, errorText } from "../lib/api";
-import { EXTRA_GROUPS, MAIN_ROWS, type LayoutKey } from "../lib/layout";
-import { MOD_NAMES, chordLabel, defaultAction, describeAction, describeMapping, keyLabel, newId, sameTrigger } from "../lib/model";
+import { LAYOUTS, layoutIds, loadLayoutId, saveLayoutId, type LayoutId, type PlacedKey } from "../lib/layout";
+import { MOD_NAMES, chordLabel, defaultAction, describeAction, describeMapping, keyLabel, newId, sameTrigger, shortAction } from "../lib/model";
 import type { DetectedKey, KeyDef, Mapping, Profile } from "../lib/types";
 import { useEditedProfile, useStore } from "../store";
 
@@ -15,17 +15,19 @@ export function Studio() {
   const [detected, setDetected] = useState<DetectedKey | null>(null);
   const [detecting, setDetecting] = useState(false);
   const [query, setQuery] = useState("");
+  const [layoutId, setLayoutId] = useState<LayoutId>(loadLayoutId);
+  const layout = LAYOUTS[layoutId];
   const selected = state.selectedKey;
   const scope = state.scope;
   const select = (id: string | null) => dispatch({ t: "nav", page: "studio", selectedKey: id });
 
   const mappedIn = (id: string) => profile.mappings.filter((m) => m.trigger.key.toLowerCase() === id.toLowerCase());
   const extraIds = useMemo(() => {
-    const layoutIds = new Set([...MAIN_ROWS.flat().map((k) => k.id), ...EXTRA_GROUPS.flatMap((g) => g.ids)].map((s) => s.toLowerCase()));
-    const ids = new Set(profile.mappings.map((m) => m.trigger.key).filter((id) => !layoutIds.has(id.toLowerCase())));
-    if (detected && !layoutIds.has(detected.id.toLowerCase())) ids.add(detected.id);
+    const shown = layoutIds(layout);
+    const ids = new Set(profile.mappings.map((m) => m.trigger.key).filter((id) => !shown.has(id.toLowerCase())));
+    if (detected && !shown.has(detected.id.toLowerCase())) ids.add(detected.id);
     return [...ids];
-  }, [profile, detected]);
+  }, [profile, detected, layout]);
 
   const results = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -44,35 +46,46 @@ export function Studio() {
     }
   }
 
-  const keyButton = (k: LayoutKey) => {
+  // Wide layouts have narrower keys: use smaller type so actions still fit.
+  const dense = layout.width > 16;
+  const keyButton = (k: PlacedKey) => {
     const maps = k.disabled ? [] : mappedIn(k.id);
     const inScope = maps.filter((m) => (m.app ?? "") === scope);
-    const enabled = inScope.some((m) => m.enabled);
+    const active = inScope.find((m) => m.enabled);
     const isSel = selected?.toLowerCase() === k.id.toLowerCase();
     const label = k.label ?? keyLabel(k.id, state.keys);
+    const action = (active ?? inScope[0]) && shortAction(active ?? inScope[0], state.keys, profile);
     return (
       <button
-        key={k.id}
+        key={`${k.id}-${k.x}-${k.y}`}
         type="button"
         disabled={!!k.disabled}
         title={k.disabled ?? (inScope.length ? `${label}: ${inScope.map((m) => describeMapping(m, state.keys, profile)).join("; ")}` : label)}
-        aria-label={`${label}${inScope.length ? `, mapped (${inScope.length})` : ""}`}
+        aria-label={`${label}${inScope.length ? `, ${describeMapping(inScope[0], state.keys, profile)}` : ""}`}
         aria-pressed={isSel}
         onClick={() => select(k.id)}
-        style={{ flexGrow: k.w ?? 1, flexBasis: 0 }}
-        className={`relative h-11 min-w-0 truncate rounded-md border px-1 text-xs transition-colors disabled:cursor-not-allowed disabled:border-dashed disabled:opacity-40 ${
+        style={{
+          left: `${(k.x / layout.width) * 100}%`,
+          top: `${(k.y / layout.height) * 100}%`,
+          width: `calc(${(k.w / layout.width) * 100}% - 4px)`,
+          height: `calc(${(k.h / layout.height) * 100}% - 4px)`,
+        }}
+        className={`absolute flex min-w-0 flex-col items-start justify-between overflow-hidden border text-left font-mono leading-none transition-colors ${dense ? "px-1 py-1 text-[9.5px]" : "px-1.5 py-1 text-[10.5px]"} disabled:cursor-not-allowed disabled:border-dashed disabled:opacity-40 ${
           isSel
-            ? "border-sky-400 bg-sky-500/20 text-sky-100"
-            : enabled
-              ? "border-sky-700 bg-sky-950 text-sky-200 hover:border-sky-500"
+            ? "border-lime-400 bg-lime-950 text-neutral-100"
+            : active
+              ? "border-lime-700 bg-neutral-900 text-neutral-200 hover:border-lime-500"
               : inScope.length
-                ? "border-zinc-600 bg-zinc-800/60 text-zinc-400"
-                : "border-zinc-800 bg-zinc-900 text-zinc-300 hover:border-zinc-600"
+                ? "border-neutral-700 bg-neutral-900 text-neutral-500"
+                : "border-neutral-800 bg-[#0f0f0f] text-neutral-300 hover:border-neutral-600"
         }`}
       >
-        {label}
-        {inScope.length > 0 && <span aria-hidden className={`absolute top-1 right-1 h-1.5 w-1.5 rounded-full ${enabled ? "bg-sky-400" : "bg-zinc-500"}`} />}
-        {maps.length > inScope.length && <span aria-hidden className="absolute top-1 left-1 h-1.5 w-1.5 rounded-full bg-amber-400" />}
+        <span className="flex w-full justify-between gap-1">
+          <span className="truncate">{label}</span>
+          {k.sub && <span className="text-[9px] text-neutral-500">{k.sub}</span>}
+        </span>
+        {action && <span className={`max-w-full truncate ${dense ? "text-[8.5px]" : "text-[9.5px]"} ${active ? "text-lime-400" : "text-neutral-500 line-through"}`}>→{action}</span>}
+        {maps.length > inScope.length && <span aria-hidden className="absolute top-1 right-1 h-1.5 w-1.5 rounded-full bg-amber-400" />}
       </button>
     );
   };
@@ -87,20 +100,36 @@ export function Studio() {
         {detecting && <Button onClick={() => api.cancelDetect()}>Cancel</Button>}
       </PageHeader>
 
-      <Card>
-        <div className="grid gap-1.5" role="group" aria-label="Keyboard">
-          {MAIN_ROWS.map((row, i) => (
-            <div key={i} className="flex gap-1.5">
-              {row.map(keyButton)}
-            </div>
-          ))}
+      <Card
+        title={`Layout · ${layout.name}`}
+        aside={
+          <Select
+            aria-label="Keyboard layout"
+            value={layoutId}
+            onChange={(e) => {
+              const id = e.target.value as LayoutId;
+              setLayoutId(id);
+              saveLayoutId(id);
+            }}
+          >
+            {Object.values(LAYOUTS).map((l) => (
+              <option key={l.id} value={l.id}>
+                {l.name}
+              </option>
+            ))}
+          </Select>
+        }
+      >
+        <div className="relative w-full" style={{ paddingTop: `${(layout.height / layout.width) * 100}%` }} role="group" aria-label={`${layout.name} keyboard`}>
+          {layout.keys.map(keyButton)}
         </div>
-        <div className="mt-3 flex flex-wrap gap-x-5 gap-y-1 text-xs text-zinc-500">
-          <span><span className="mr-1 inline-block h-2 w-2 rounded-full bg-sky-400" />Mapped here</span>
-          <span><span className="mr-1 inline-block h-2 w-2 rounded-full bg-zinc-500" />Mapped, turned off</span>
-          <span><span className="mr-1 inline-block h-2 w-2 rounded-full bg-amber-400" />Mapped in another scope</span>
-          <span>Dashed keys cannot be mapped (hover for why).</span>
+        <div className="mt-3 flex flex-wrap gap-x-5 gap-y-1 font-mono text-[11px] text-neutral-500">
+          <span><span className="text-lime-400">→action</span> mapped here</span>
+          <span><span className="line-through">→action</span> turned off</span>
+          <span><span className="mr-1 inline-block h-2 w-2 rounded-full bg-amber-400" />mapped in another scope</span>
+          <span>dashed: cannot be mapped (hover for why)</span>
         </div>
+        {layout.note && <p className="mt-3 text-xs text-neutral-400">{layout.note}</p>}
       </Card>
 
       <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.3fr)]">
@@ -108,17 +137,17 @@ export function Studio() {
           {detected && (
             <Card title="Detected key" aside={<Button variant="ghost" onClick={() => setDetected(null)}>Clear</Button>}>
               <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-sm" aria-live="polite">
-                <dt className="text-zinc-400">Name</dt>
-                <dd><Kbd>{detected.name || detected.id}</Kbd> <span className="text-zinc-500">({detected.id})</span></dd>
-                <dt className="text-zinc-400">Virtual key</dt>
+                <dt className="text-neutral-400">Name</dt>
+                <dd><Kbd>{detected.name || detected.id}</Kbd> <span className="text-neutral-500">({detected.id})</span></dd>
+                <dt className="text-neutral-400">Virtual key</dt>
                 <dd className="font-mono">{hex(detected.vk)}</dd>
-                <dt className="text-zinc-400">Scan code</dt>
+                <dt className="text-neutral-400">Scan code</dt>
                 <dd className="font-mono">{hex(detected.sc, 3)}</dd>
-                <dt className="text-zinc-400">Modifiers held</dt>
+                <dt className="text-neutral-400">Modifiers held</dt>
                 <dd>{MOD_NAMES.filter((m) => detected[m]).map((m) => m[0].toUpperCase() + m.slice(1)).join(" + ") || "none"}</dd>
               </dl>
               {(detected.shift || detected.win || detected.ctrl || detected.alt) && (
-                <p className="mt-3 text-xs text-zinc-400">
+                <p className="mt-3 text-xs text-neutral-400">
                   This key arrived together with modifiers. Some laptop keys (such as the Copilot key, which sends Win+Shift+F23) do this in firmware. New
                   mappings for it include those modifiers automatically.
                 </p>
@@ -131,18 +160,18 @@ export function Studio() {
               <ul className="mt-2 grid max-h-56 gap-0.5 overflow-y-auto">
                 {results.map((k) => (
                   <li key={k.id}>
-                    <button type="button" className="flex w-full items-center justify-between rounded px-2 py-1 text-left text-sm hover:bg-zinc-800" onClick={() => select(k.id)}>
+                    <button type="button" className="flex w-full items-center justify-between rounded px-2 py-1 text-left text-sm hover:bg-neutral-800" onClick={() => select(k.id)}>
                       <span>{k.label}</span>
-                      {mappedIn(k.id).length > 0 && <Badge tone="sky">{mappedIn(k.id).length} mapped</Badge>}
+                      {mappedIn(k.id).length > 0 && <Badge tone="accent">{mappedIn(k.id).length} mapped</Badge>}
                     </button>
                   </li>
                 ))}
               </ul>
             )}
             <div className="mt-4 grid gap-3">
-              {[...EXTRA_GROUPS, ...(extraIds.length ? [{ label: "Detected and other keys", ids: extraIds }] : [])].map((g) => (
+              {[...layout.extras, ...(extraIds.length ? [{ label: "Detected and other keys", ids: extraIds }] : [])].map((g) => (
                 <div key={g.label}>
-                  <h3 className="mb-1.5 text-xs text-zinc-500">{g.label}</h3>
+                  <h3 className="mb-1.5 text-xs text-neutral-500">{g.label}</h3>
                   <div className="flex flex-wrap gap-1.5">
                     {g.ids.map((id) => {
                       const n = mappedIn(id).filter((m) => (m.app ?? "") === scope).length;
@@ -153,7 +182,7 @@ export function Studio() {
                           type="button"
                           aria-pressed={sel}
                           onClick={() => select(id)}
-                          className={`rounded-md border px-2 py-1 text-xs ${sel ? "border-sky-400 bg-sky-500/20" : n ? "border-sky-700 bg-sky-950 text-sky-200" : "border-zinc-800 bg-zinc-900 text-zinc-300 hover:border-zinc-600"}`}
+                          className={`rounded-md border px-2 py-1 text-xs ${sel ? "border-lime-400 bg-lime-500/20" : n ? "border-lime-700 bg-lime-950 text-lime-200" : "border-neutral-800 bg-neutral-900 text-neutral-300 hover:border-neutral-600"}`}
                         >
                           {keyLabel(id, state.keys)}
                         </button>
@@ -277,7 +306,7 @@ function MappingRow({ m, profile, onEdit, onRemove }: { m: Mapping; profile: Pro
   const applied = JSON.stringify(savedProfile?.mappings.find((x) => x.id === m.id)) === JSON.stringify(m);
   const issue = state.report?.errors.find((i) => i.mapping === m.id && i.profile === profile.id) ?? state.report?.warnings.find((i) => i.mapping === m.id && i.profile === profile.id);
   return (
-    <li className="rounded-lg border border-zinc-800 bg-zinc-900 p-3">
+    <li className="rounded-lg border border-neutral-800 bg-neutral-900 p-3">
       <div className="flex flex-wrap items-center gap-2">
         <Toggle
           label={`Mapping ${chordLabel(m.trigger, state.keys)} on or off`}
@@ -292,7 +321,7 @@ function MappingRow({ m, profile, onEdit, onRemove }: { m: Mapping; profile: Pro
         />
         <Kbd>{chordLabel(m.trigger, state.keys)}</Kbd>
         {m.app ? <Badge tone="amber">only in {m.app}</Badge> : <Badge>all apps</Badge>}
-        {!applied && <Badge tone="sky">not applied</Badge>}
+        {!applied && <Badge tone="accent">not applied</Badge>}
         <div className="ml-auto flex gap-1">
           <Button
             variant="ghost"
@@ -319,7 +348,7 @@ function MappingRow({ m, profile, onEdit, onRemove }: { m: Mapping; profile: Pro
           </Button>
         </div>
       </div>
-      <p className={`mt-2 text-sm ${m.enabled ? "text-zinc-300" : "text-zinc-500"}`}>
+      <p className={`mt-2 text-sm ${m.enabled ? "text-neutral-300" : "text-neutral-500"}`}>
         {m.name ? <b className="mr-1">{m.name}:</b> : null}
         {describeMapping(m, state.keys, profile)}
       </p>
@@ -337,7 +366,7 @@ function MappingEditor({ initial, profile, onSave, onCancel }: { initial: Mappin
 
   return (
     <form
-      className="mt-4 grid gap-4 rounded-lg border border-sky-900 bg-zinc-950 p-4"
+      className="mt-4 grid gap-4 rounded-lg border border-lime-900 bg-neutral-950 p-4"
       onSubmit={(e) => {
         e.preventDefault();
         onSave(m);
@@ -366,14 +395,14 @@ function MappingEditor({ initial, profile, onSave, onCancel }: { initial: Mappin
           )}
         </Field>
       </div>
-      <p className="text-sm text-zinc-400">
-        When you press <Kbd>{chordLabel(m.trigger, state.keys)}</Kbd>: <span className="text-zinc-200">{describeAction(m.action, state.keys, profile)}</span>
+      <p className="text-sm text-neutral-400">
+        When you press <Kbd>{chordLabel(m.trigger, state.keys)}</Kbd>: <span className="text-neutral-200">{describeAction(m.action, state.keys, profile)}</span>
       </p>
       {conflict && <Alert tone="warn">{chordLabel(conflict.trigger, state.keys)} is already mapped here ({describeMapping(conflict, state.keys, profile)}). Turn one off or change the trigger.</Alert>}
       <ActionEditor value={m.action} onChange={(action) => set({ action })} profile={profile} label="What it does" />
 
-      <fieldset className="grid gap-3 rounded-lg border border-zinc-800 p-3">
-        <legend className="px-1 text-xs text-zinc-400">Advanced behaviour</legend>
+      <fieldset className="grid gap-3 rounded-lg border border-neutral-800 p-3">
+        <legend className="px-1 text-xs text-neutral-400">Advanced behaviour</legend>
         <Checkbox checked={!!m.hold} onChange={(on) => set({ hold: on ? defaultAction("media", profile) : null })} label="Do something else when the key is held" />
         {m.hold && (
           <div className="grid gap-3 pl-6">
@@ -388,7 +417,7 @@ function MappingEditor({ initial, profile, onSave, onCancel }: { initial: Mappin
         <Checkbox checked={!!m.doubleTap} onChange={(on) => set({ doubleTap: on ? defaultAction("media", profile) : null })} label="Do something else on a double tap" />
         {m.doubleTap && (
           <div className="grid gap-3 pl-6">
-            <p className="text-xs text-zinc-500">A single tap then waits {settings.doubleTapMs} ms (Settings) to see whether a second tap follows.</p>
+            <p className="text-xs text-neutral-500">A single tap then waits {settings.doubleTapMs} ms (Settings) to see whether a second tap follows.</p>
             <ActionEditor value={m.doubleTap} onChange={(doubleTap) => set({ doubleTap })} profile={profile} label="On double tap" />
           </div>
         )}
@@ -408,7 +437,7 @@ function MappingEditor({ initial, profile, onSave, onCancel }: { initial: Mappin
           Save mapping
         </Button>
       </div>
-      <p className="text-xs text-zinc-500">Saved mappings take effect when you click Apply changes.</p>
+      <p className="text-xs text-neutral-500">Saved mappings take effect when you click Apply changes.</p>
     </form>
   );
 }
