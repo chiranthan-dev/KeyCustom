@@ -1,5 +1,5 @@
 // Smoke test for the release build on Windows: KeyForge must be started with
-// WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS=--remote-debugging-port=9222. Connects
+// KEYFORGE_REMOTE_DEBUG_PORT=9222 so its WebView2 opens DevTools. Connects
 // to its WebView2 windows and checks that the main window renders the app
 // (not a loading or error screen) and that the cheat-sheet window loaded.
 import { chromium } from "playwright-core";

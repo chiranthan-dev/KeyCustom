@@ -67,7 +67,7 @@ jobs:
       - name: Smoke test the release build (window renders, no startup errors)
         shell: pwsh
         run: |
-          $env:WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS = "--remote-debugging-port=9222"
+          $env:KEYFORGE_REMOTE_DEBUG_PORT = "9222"
           $p = Start-Process target/release/keyforge.exe -PassThru
           try {
             node scripts/smoke-ui.mjs smoke.png

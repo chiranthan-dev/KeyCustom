@@ -67,13 +67,26 @@ impl Sink for TauriSink {
     }
 }
 
+/// Browser arguments for every webview. With `KEYFORGE_REMOTE_DEBUG_PORT`
+/// set (CI's UI smoke test does this), WebView2 also opens a local DevTools
+/// port. Wry's default arguments are kept, and all windows must use the same
+/// arguments because they share one WebView2 environment.
+fn browser_args() -> Option<String> {
+    let port: u16 = std::env::var("KEYFORGE_REMOTE_DEBUG_PORT").ok()?.parse().ok()?;
+    Some(format!("--disable-features=msWebOOUI,msPdfOOUI,msSmartScreenProtection --remote-debugging-port={port}"))
+}
+
 const OVERLAY_SIZE: (f64, f64) = (360.0, 560.0);
 const OVERLAY_MARGIN: f64 = 16.0;
 
 /// The cheat-sheet window: transparent, always on top, never focused and
 /// click-through, so it cannot take keys or clicks from the app in front.
 fn create_overlay(app: &AppHandle) -> tauri::Result<()> {
-    let window = tauri::WebviewWindowBuilder::new(app, "overlay", tauri::WebviewUrl::App("index.html".into()))
+    let mut builder = tauri::WebviewWindowBuilder::new(app, "overlay", tauri::WebviewUrl::App("index.html".into()));
+    if let Some(args) = browser_args() {
+        builder = builder.additional_browser_args(&args);
+    }
+    let window = builder
         .title("KeyForge cheat sheet")
         .inner_size(OVERLAY_SIZE.0, OVERLAY_SIZE.1)
         .decorations(false)
@@ -307,7 +320,11 @@ pub fn run() {
             #[cfg(windows)]
             controller.register_emergency_hotkey();
             let main = app.config().app.windows.iter().find(|w| w.label == "main").expect("main window in tauri.conf.json").clone();
-            tauri::WebviewWindowBuilder::from_config(&handle, &main)?.build()?;
+            let mut builder = tauri::WebviewWindowBuilder::from_config(&handle, &main)?;
+            if let Some(args) = browser_args() {
+                builder = builder.additional_browser_args(&args);
+            }
+            builder.build()?;
             create_overlay(&handle)?;
             build_tray(&handle, &sink)?;
 
