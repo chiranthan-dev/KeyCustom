@@ -64,14 +64,26 @@ jobs:
       - name: Build app and NSIS installer
         run: npx tauri build
 
-      - name: Smoke test the release build
+      - name: Smoke test the release build (window renders, no startup errors)
         shell: pwsh
         run: |
+          $env:WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS = "--remote-debugging-port=9222"
           $p = Start-Process target/release/keyforge.exe -PassThru
-          Start-Sleep -Seconds 8
-          if ($p.HasExited) { throw "KeyForge exited during startup with code $($p.ExitCode)" }
-          Stop-Process -Id $p.Id
+          try {
+            node scripts/smoke-ui.mjs smoke.png
+            if ($LASTEXITCODE -ne 0) { throw "UI smoke test failed" }
+            if ($p.HasExited) { throw "KeyForge exited during startup with code $($p.ExitCode)" }
+          } finally {
+            if (-not $p.HasExited) { Stop-Process -Id $p.Id }
+          }
           Get-ChildItem target/release/bundle/nsis | Format-Table Name, Length
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: smoke-screenshot
+          path: smoke.png
+          if-no-files-found: ignore
 
       - uses: actions/upload-artifact@v4
         with:
