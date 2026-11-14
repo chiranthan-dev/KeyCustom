@@ -301,11 +301,15 @@ pub fn run() {
             options.bundled_ahk_dir = app.path().resource_dir().ok().map(|d| d.join("engine"));
             let sink = Arc::new(TauriSink { app: handle.clone(), tray: Mutex::new(None) });
             let controller = Controller::new(options, sink.clone());
+            // Register the controller before any window exists: a page that
+            // loads first would call commands that need it and fail.
+            app.manage(Arc::clone(&controller));
             #[cfg(windows)]
             controller.register_emergency_hotkey();
-            build_tray(&handle, &sink)?;
+            let main = app.config().app.windows.iter().find(|w| w.label == "main").expect("main window in tauri.conf.json").clone();
+            tauri::WebviewWindowBuilder::from_config(&handle, &main)?.build()?;
             create_overlay(&handle)?;
-            app.manage(Arc::clone(&controller));
+            build_tray(&handle, &sink)?;
 
             // Started at sign-in: stay in the tray. Otherwise show the window.
             let autostarted = std::env::args().any(|a| a == AUTOSTART_FLAG);

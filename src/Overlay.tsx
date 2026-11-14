@@ -15,15 +15,15 @@ export function Overlay() {
 
   useEffect(() => {
     api.keys().then(setKeys, () => {});
-    api.snapshot().then((s) => setConfig(s.config), () => {});
     const sub = onEvent("overlay", (e) => {
       if (!e.show) {
         setCtx(null);
         return;
       }
       setCtx({ app: e.app ?? "", profile: e.profile ?? "" });
-      // Show the cached configuration at once, then refresh it.
+      // Show the cached configuration at once (if any), then refresh it.
       api.snapshot().then((s) => setConfig(s.config), () => {});
+      api.keys().then(setKeys, () => {});
     });
     return () => {
       sub.then((unlisten) => unlisten());

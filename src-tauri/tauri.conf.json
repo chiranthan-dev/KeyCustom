@@ -11,7 +11,7 @@
   },
   "app": {
     "windows": [
-      { "label": "main", "title": "KeyForge", "width": 1080, "height": 720, "minWidth": 760, "minHeight": 540, "visible": false }
+      { "label": "main", "title": "KeyForge", "width": 1080, "height": 720, "minWidth": 760, "minHeight": 540, "visible": false, "create": false }
     ],
     "security": {
       "csp": "default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src ipc: http://ipc.localhost"

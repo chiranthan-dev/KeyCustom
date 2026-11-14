@@ -128,10 +128,20 @@ function useStoreValue() {
   const detectWaiter = useRef<((k: DetectedKey | null) => void) | null>(null);
 
   useEffect(() => {
-    Promise.all([api.snapshot(), api.keys()]).then(
-      ([snap, keys]) => dispatch({ t: "init", config: snap.config, status: snap.status, keys, firstRun: snap.firstRun }),
-      (e) => dispatch({ t: "toast", toast: { tone: "error", text: errorText(e) } }),
-    );
+    // Retry briefly: right after launch the backend may still be starting.
+    const load = async (attempt: number): Promise<void> => {
+      try {
+        const [snap, keys] = await Promise.all([api.snapshot(), api.keys()]);
+        dispatch({ t: "init", config: snap.config, status: snap.status, keys, firstRun: snap.firstRun });
+      } catch (e) {
+        if (attempt < 20) {
+          await new Promise((r) => setTimeout(r, 150));
+          return load(attempt + 1);
+        }
+        dispatch({ t: "toast", toast: { tone: "error", text: `KeyForge could not start: ${errorText(e)}` } });
+      }
+    };
+    void load(0);
     const subs = [
       onEvent("status", (status) => dispatch({ t: "status", status })),
       onEvent("fired", (f) => dispatch({ t: "fired", fired: { ...f, at: Date.now() } })),
