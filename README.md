@@ -56,13 +56,30 @@ KeyForge is a small Tauri app (Rust and React, using Windows' built-in WebView2)
 
 ## Install
 
-Download the `keyforge-windows-installer` artifact from the latest successful [CI run](../../actions/workflows/ci.yml), unzip it and run `KeyForge_0.1.0_x64-setup.exe`. The installer:
+Download `KeyForge_0.1.0_x64-setup.exe`, either from a [release](../../releases) or as the `keyforge-windows-installer` artifact of the latest successful [CI run](../../actions/workflows/ci.yml) (unzip it first). The installer:
 
 - installs per user (no administrator rights);
 - bundles AutoHotkey v2;
 - uses the WebView2 runtime that ships with Windows 11.
 
-The installer is not code-signed, so SmartScreen may ask you to confirm (**More info → Run anyway**).
+### "Dangerous download blocked" and SmartScreen
+
+Until the installer is code-signed ([docs/SIGNING.md](docs/SIGNING.md)), Chrome, Edge and SmartScreen treat it as an unknown program. Bundling AutoHotkey, a keyboard-automation tool, also makes such false alarms more likely. To install anyway, first check that you have the genuine file:
+
+1. Get the checksum. It is in `SHA256SUMS.txt` next to the installer, and in the CI log ("Check signatures and write checksums").
+2. Compare it in PowerShell; the two must match exactly:
+
+```powershell
+Get-FileHash .\KeyForge_0.1.0_x64-setup.exe -Algorithm SHA256
+```
+
+Then keep and run it:
+
+- **Chrome:** open the downloads page (`Ctrl+J`) and choose **Download dangerous file**.
+- **Edge:** open Downloads (`Ctrl+J`), hover the file, then **…** → **Keep** → **Show more** → **Keep anyway**.
+- **SmartScreen:** when the installer starts, choose **More info** → **Run anyway**.
+
+If you prefer not to override the warning, [build from source](#build-from-source); a locally built installer is not marked as downloaded.
 
 ## Quick start
 
