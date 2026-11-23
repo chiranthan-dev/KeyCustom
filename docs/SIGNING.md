@@ -52,3 +52,5 @@ git tag v0.1.0
 ```bash
 git push origin v0.1.0
 ```
+
+Alternatively, run the CI workflow manually (**Actions → CI → Run workflow**) with **release_tag** set, e.g. `v0.1.1`. The release and its tag are created on the commit that was built.
