@@ -56,7 +56,7 @@ KeyForge is a small Tauri app (Rust and React, using Windows' built-in WebView2)
 
 ## Install
 
-Download `KeyForge_0.1.0_x64-setup.exe`, either from a [release](../../releases) or as the `keyforge-windows-installer` artifact of the latest successful [CI run](../../actions/workflows/ci.yml) (unzip it first). The installer:
+Download `KeyForge_0.1.1_x64-setup.exe`, either from a [release](../../releases) or as the `keyforge-windows-installer` artifact of the latest successful [CI run](../../actions/workflows/ci.yml) (unzip it first). The installer:
 
 - installs per user (no administrator rights);
 - bundles AutoHotkey v2;
@@ -70,7 +70,7 @@ Until the installer is code-signed ([docs/SIGNING.md](docs/SIGNING.md)), Chrome,
 2. Compare it in PowerShell; the two must match exactly:
 
 ```powershell
-Get-FileHash .\KeyForge_0.1.0_x64-setup.exe -Algorithm SHA256
+Get-FileHash .\KeyForge_0.1.1_x64-setup.exe -Algorithm SHA256
 ```
 
 Then keep and run it:

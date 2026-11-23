@@ -500,10 +500,9 @@ fn macro_runs_steps_in_order() {
 }
 
 #[test]
-fn win_key_step_opens_start_without_menu_mask() {
-    // A step "Win + Left Win" must press Win on its own. Sending it with the
-    // Win modifier held makes AutoHotkey insert its menu-mask key (vkE8) so the
-    // Start menu does not open.
+fn win_key_step_opens_start_with_ctrl_esc() {
+    // A step "Left Win" (even with the Win box ticked) opens Start through
+    // Ctrl+Esc, which Windows honours reliably for injected input.
     let _g = serial();
     let Some(exe) = ahk_exe() else { return };
     let observer = Observer::start();
@@ -515,13 +514,34 @@ fn win_key_step_opens_start_without_menu_mask() {
     });
     let (engine, _rx) = start_config(&exe, "win-step", &c);
     tap(VK_F20);
-    settle(500);
+    settle(800);
     let seen = observer.seen();
+    eprintln!("foreground after the step: {}", foreground_process());
     tap(windows_sys::Win32::UI::Input::KeyboardAndMouse::VK_ESCAPE); // close Start again
-    assert!(observer.saw(VK_LWIN, false) && observer.saw(VK_LWIN, true), "Win not pressed: {seen:?}");
-    assert!(!seen.iter().any(|&(vk, _, _)| vk == 0xE8), "Start menu was masked: {seen:?}");
+    let esc = observer.index(windows_sys::Win32::UI::Input::KeyboardAndMouse::VK_ESCAPE, false).unwrap_or_else(|| panic!("Esc not sent: {seen:?}"));
+    assert!(seen[..esc].iter().any(|&(vk, up, _)| !up && (vk == VK_LCONTROL as u32 || vk == 0x11)), "Ctrl not held for Ctrl+Esc: {seen:?}");
+    assert!(!observer.saw_any(VK_LWIN), "a bare Win tap was sent: {seen:?}");
     engine.stop(Duration::from_secs(3));
     assert_no_stuck_modifiers();
+}
+
+/// Name of the process that owns the foreground window (diagnostics only).
+fn foreground_process() -> String {
+    use windows_sys::Win32::System::Threading::{OpenProcess, QueryFullProcessImageNameW, PROCESS_QUERY_LIMITED_INFORMATION};
+    use windows_sys::Win32::UI::WindowsAndMessaging::{GetForegroundWindow, GetWindowThreadProcessId};
+    unsafe {
+        let mut pid = 0u32;
+        GetWindowThreadProcessId(GetForegroundWindow(), &mut pid);
+        let h = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, 0, pid);
+        if h.is_null() {
+            return format!("pid {pid}");
+        }
+        let mut buf = [0u16; 512];
+        let mut len = buf.len() as u32;
+        let ok = QueryFullProcessImageNameW(h, 0, buf.as_mut_ptr(), &mut len);
+        CloseHandle(h);
+        if ok == 0 { format!("pid {pid}") } else { String::from_utf16_lossy(&buf[..len as usize]) }
+    }
 }
 
 #[test]

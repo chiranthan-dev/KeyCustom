@@ -1890,7 +1890,7 @@ dependencies = [
 
 [[package]]
 name = "keyforge"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "keyforge-core",
  "keyforge-engine",
@@ -1904,7 +1904,7 @@ dependencies = [
 
 [[package]]
 name = "keyforge-core"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "serde",
  "serde_json",
@@ -1912,7 +1912,7 @@ dependencies = [
 
 [[package]]
 name = "keyforge-engine"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "keyforge-core",
  "serde",

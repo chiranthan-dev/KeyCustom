@@ -107,6 +107,7 @@ pub enum SystemAction {
     LockScreen,
     ShowDesktop,
     EmojiPanel,
+    StartMenu,
 }
 
 pub enum SystemTarget {
@@ -118,7 +119,7 @@ pub enum SystemTarget {
 }
 
 impl SystemAction {
-    pub const ALL: [SystemAction; 22] = [
+    pub const ALL: [SystemAction; 23] = [
         SystemAction::SettingsHome,
         SystemAction::Display,
         SystemAction::Sound,
@@ -141,6 +142,7 @@ impl SystemAction {
         SystemAction::LockScreen,
         SystemAction::ShowDesktop,
         SystemAction::EmojiPanel,
+        SystemAction::StartMenu,
     ];
 
     pub fn target(self) -> SystemTarget {
@@ -169,6 +171,7 @@ impl SystemAction {
             LockScreen => Lock,
             ShowDesktop => Send("#d"),
             EmojiPanel => Send("#."),
+            StartMenu => Send("^{Esc}"),
         }
     }
 }

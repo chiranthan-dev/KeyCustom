@@ -694,10 +694,8 @@
         "name": "Open app by name",
         "steps": [
           {
-            "type": "keys",
-            "keys": {
-              "key": "LWin"
-            }
+            "type": "system",
+            "action": "startMenu"
           },
           {
             "type": "delay",

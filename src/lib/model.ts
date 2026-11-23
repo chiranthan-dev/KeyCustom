@@ -120,6 +120,7 @@ export const SYSTEM_GROUPS: { label: string; items: [SystemAction, string][] }[]
   {
     label: "Windows",
     items: [
+      ["startMenu", "Open Start menu"],
       ["lockScreen", "Lock the PC"],
       ["showDesktop", "Show desktop"],
       ["emojiPanel", "Emoji panel"],

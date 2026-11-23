@@ -57,6 +57,12 @@ fn chord_send(chord: &Chord) -> String {
         Some("win") => mods.win = false,
         _ => {}
     }
+    // A lone Win press means "open Start". An injected Win tap is easily
+    // swallowed (Windows only opens Start for a clean Win down/up), while
+    // Ctrl+Esc opens Start reliably.
+    if keys::modifier_kind(&key.id) == Some("win") && mods.is_empty() {
+        return "^{Esc}".to_string();
+    }
     format!("{}{{{}}}", mods.ahk_prefix(), key.send)
 }
 
@@ -368,7 +374,9 @@ mod tests {
     #[test]
     fn modifier_key_steps_do_not_hold_their_own_modifier() {
         let win = Chord { key: "LWin".into(), mods: Modifiers { win: true, ..Default::default() } };
-        assert_eq!(chord_send(&win), "{LWin}");
+        assert_eq!(chord_send(&win), "^{Esc}", "a lone Win press opens Start with Ctrl+Esc");
+        let win_e = Chord { key: "LWin".into(), mods: Modifiers { win: true, shift: true, ..Default::default() } };
+        assert_eq!(chord_send(&win_e), "+{LWin}");
         let ctrl_shift = Chord { key: "RShift".into(), mods: Modifiers { ctrl: true, shift: true, ..Default::default() } };
         assert_eq!(chord_send(&ctrl_shift), "^{RShift}");
         assert_eq!(chord_send(&Chord { key: "S".into(), mods: Modifiers { win: true, ..Default::default() } }), "#{s}");

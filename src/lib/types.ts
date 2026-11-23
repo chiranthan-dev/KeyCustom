@@ -16,7 +16,7 @@ export type MediaAction = "playPause" | "next" | "previous" | "stop" | "volumeUp
 export type SystemAction =
   | "settingsHome" | "display" | "sound" | "bluetooth" | "network" | "wifi" | "personalization" | "apps"
   | "power" | "windowsUpdate" | "notifications" | "privacy" | "mouse" | "taskManager" | "calculator"
-  | "snippingTool" | "fileExplorer" | "notepad" | "controlPanel" | "lockScreen" | "showDesktop" | "emojiPanel";
+  | "snippingTool" | "fileExplorer" | "notepad" | "controlPanel" | "lockScreen" | "showDesktop" | "emojiPanel" | "startMenu";
 
 export type Action =
   | { type: "remap"; to: string }
