@@ -1,6 +1,6 @@
 // Key and chord pickers shared by the Studio, Macro Builder and Profiles.
 import { useMemo, useState } from "react";
-import { MOD_NAMES, keyLabel } from "../lib/model";
+import { MOD_NAMES, keyLabel, modifierKind, withoutOwnModifier } from "../lib/model";
 import type { Chord, KeyDef } from "../lib/types";
 import { useStore } from "../store";
 import { Button, Checkbox, Select } from "./ui";
@@ -54,7 +54,7 @@ export function ChordPicker({ value, onChange, allowDetect = true, label }: { va
   return (
     <div className="grid gap-2" role="group" aria-label={label ?? "Key combination"}>
       <div className="flex flex-wrap items-center gap-2">
-        <KeySelect value={value.key} onChange={(key) => onChange({ ...value, key })} />
+        <KeySelect value={value.key} onChange={(key) => onChange(withoutOwnModifier({ ...value, key }))} />
         {allowDetect && (
           <Button
             disabled={waiting || !state.status?.ahkPath}
@@ -62,7 +62,7 @@ export function ChordPicker({ value, onChange, allowDetect = true, label }: { va
               setWaiting(true);
               const k = await detect();
               setWaiting(false);
-              if (k) onChange({ key: k.id, ctrl: k.ctrl, shift: k.shift, alt: k.alt, win: k.win });
+              if (k) onChange(withoutOwnModifier({ key: k.id, ctrl: k.ctrl, shift: k.shift, alt: k.alt, win: k.win }));
             }}
           >
             {waiting ? "Press a key…" : "Detect"}
@@ -70,7 +70,7 @@ export function ChordPicker({ value, onChange, allowDetect = true, label }: { va
         )}
       </div>
       <div className="flex flex-wrap gap-3">
-        {MOD_NAMES.map((m) => (
+        {MOD_NAMES.filter((m) => modifierKind(value.key) !== m).map((m) => (
           <Checkbox key={m} checked={!!value[m]} onChange={(on) => onChange({ ...value, [m]: on })} label={m[0].toUpperCase() + m.slice(1)} />
         ))}
       </div>

@@ -249,6 +249,17 @@ pub fn parse_raw(id: &str) -> Option<(u16, u16)> {
     ((1..=0xFE).contains(&vk) && sc <= 0x1FF).then_some((vk, sc))
 }
 
+/// Which modifier a modifier key is: "ctrl", "shift", "alt" or "win".
+pub fn modifier_kind(id: &str) -> Option<&'static str> {
+    match id {
+        "LCtrl" | "RCtrl" => Some("ctrl"),
+        "LShift" | "RShift" => Some("shift"),
+        "LAlt" | "RAlt" => Some("alt"),
+        "LWin" | "RWin" => Some("win"),
+        _ => None,
+    }
+}
+
 pub fn is_modifier_vk(vk: u16) -> bool {
     matches!(vk, 0x10 | 0x11 | 0x12 | 0xA0..=0xA5 | 0x5B | 0x5C)
 }

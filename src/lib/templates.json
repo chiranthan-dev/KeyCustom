@@ -686,6 +686,42 @@
       }
     },
     {
+      "id": "start-search",
+      "group": "Routines",
+      "name": "Open an app by name",
+      "description": "Open Start, type the app's name and press Enter",
+      "macro": {
+        "name": "Open app by name",
+        "steps": [
+          {
+            "type": "keys",
+            "keys": {
+              "key": "LWin"
+            }
+          },
+          {
+            "type": "delay",
+            "ms": 600
+          },
+          {
+            "type": "text",
+            "text": "notepad"
+          },
+          {
+            "type": "delay",
+            "ms": 800
+          },
+          {
+            "type": "keys",
+            "keys": {
+              "key": "Enter"
+            }
+          }
+        ]
+      },
+      "personalize": "Change \"notepad\" to the app's name in Macro Builder afterwards"
+    },
+    {
       "id": "step-away",
       "group": "Routines",
       "name": "Step away",

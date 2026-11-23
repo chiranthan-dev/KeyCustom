@@ -346,3 +346,19 @@ export function cheatSheetRows(config: Config, profileId: string, app: string, k
   const row = (m: Mapping, appOnly: boolean): CheatRow => ({ trigger: m.trigger, action: m.name || describeMapping(m, keys, profile), appOnly });
   return { profile, rows: [...own.map((m) => row(m, true)), ...global.map((m) => row(m, false))], globalOff };
 }
+
+/** The modifier a modifier key stands for (Left Win → "win"). */
+export function modifierKind(key: string): (typeof MOD_NAMES)[number] | null {
+  const k = key.toLowerCase();
+  if (k === "lctrl" || k === "rctrl") return "ctrl";
+  if (k === "lshift" || k === "rshift") return "shift";
+  if (k === "lalt" || k === "ralt") return "alt";
+  if (k === "lwin" || k === "rwin") return "win";
+  return null;
+}
+
+/** "Win + Left Win" is just Left Win: drop the key's own modifier. */
+export function withoutOwnModifier(chord: Chord): Chord {
+  const own = modifierKind(chord.key);
+  return own ? { ...chord, [own]: false } : chord;
+}

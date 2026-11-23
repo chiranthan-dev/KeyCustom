@@ -116,3 +116,11 @@ describe("layouts", () => {
     expect(LAYOUTS.gk61.keys.length).toBe(61);
   });
 });
+
+describe("modifier keys", () => {
+  it("never carry their own modifier", async () => {
+    const { withoutOwnModifier } = await import("./model");
+    expect(withoutOwnModifier({ key: "LWin", win: true, ctrl: true })).toEqual({ key: "LWin", win: false, ctrl: true });
+    expect(withoutOwnModifier({ key: "S", win: true })).toEqual({ key: "S", win: true });
+  });
+});

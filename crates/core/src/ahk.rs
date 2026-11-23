@@ -47,7 +47,17 @@ pub fn quote(s: &str) -> String {
 /// `Send` text for a chord, e.g. `^+{s}`. Key tokens never need escaping.
 fn chord_send(chord: &Chord) -> String {
     let key = keys::resolve(&chord.key).expect("validated key");
-    format!("{}{{{}}}", chord.mods.ahk_prefix(), key.send)
+    // "Win + Left Win" means pressing Win. Holding the modifier as well would
+    // make AutoHotkey suppress the key's own effect (for Win: the Start menu).
+    let mut mods = chord.mods.clone();
+    match keys::modifier_kind(&key.id) {
+        Some("ctrl") => mods.ctrl = false,
+        Some("shift") => mods.shift = false,
+        Some("alt") => mods.alt = false,
+        Some("win") => mods.win = false,
+        _ => {}
+    }
+    format!("{}{{{}}}", mods.ahk_prefix(), key.send)
 }
 
 fn media_line(action: MediaAction) -> String {
@@ -353,6 +363,15 @@ mod tests {
             assert!(out.contains(needle), "missing {needle} in:\n{out}");
         }
         assert!(out.find("\"chrome.exe\", \"\"").unwrap() < out.find("\"\", \"|chrome.exe|\"").unwrap(), "app variant first");
+    }
+
+    #[test]
+    fn modifier_key_steps_do_not_hold_their_own_modifier() {
+        let win = Chord { key: "LWin".into(), mods: Modifiers { win: true, ..Default::default() } };
+        assert_eq!(chord_send(&win), "{LWin}");
+        let ctrl_shift = Chord { key: "RShift".into(), mods: Modifiers { ctrl: true, shift: true, ..Default::default() } };
+        assert_eq!(chord_send(&ctrl_shift), "^{RShift}");
+        assert_eq!(chord_send(&Chord { key: "S".into(), mods: Modifiers { win: true, ..Default::default() } }), "#{s}");
     }
 
     #[test]

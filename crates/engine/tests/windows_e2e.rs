@@ -500,6 +500,31 @@ fn macro_runs_steps_in_order() {
 }
 
 #[test]
+fn win_key_step_opens_start_without_menu_mask() {
+    // A step "Win + Left Win" must press Win on its own. Sending it with the
+    // Win modifier held makes AutoHotkey insert its menu-mask key (vkE8) so the
+    // Start menu does not open.
+    let _g = serial();
+    let Some(exe) = ahk_exe() else { return };
+    let observer = Observer::start();
+    let mut c = config_with(vec![mapping("m", "F20", Action::Macro { macro_id: "start".into() })]);
+    c.profiles[0].macros.push(Macro {
+        id: "start".into(),
+        name: "Start".into(),
+        steps: vec![Step::Keys { keys: chord("LWin", false, false, false, true) }],
+    });
+    let (engine, _rx) = start_config(&exe, "win-step", &c);
+    tap(VK_F20);
+    settle(500);
+    let seen = observer.seen();
+    tap(windows_sys::Win32::UI::Input::KeyboardAndMouse::VK_ESCAPE); // close Start again
+    assert!(observer.saw(VK_LWIN, false) && observer.saw(VK_LWIN, true), "Win not pressed: {seen:?}");
+    assert!(!seen.iter().any(|&(vk, _, _)| vk == 0xE8), "Start menu was masked: {seen:?}");
+    engine.stop(Duration::from_secs(3));
+    assert_no_stuck_modifiers();
+}
+
+#[test]
 fn profile_shortcut_and_command_switch_mappings() {
     let _g = serial();
     let Some(exe) = ahk_exe() else { return };
